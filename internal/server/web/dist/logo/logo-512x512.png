@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="MSM - Mosdns Singbox Mihomo Manager - 统一管理 DNS 和代理服务的可视化平台" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <!-- 防止缓存 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/logo/manifest.json" />
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="/logo/logo-square.svg" />
+
+    <title>MSM 管理平台</title>
+
+    <style>
+      /* 初始加载动画样式 - 现代科技风格 - 支持明亮/暗黑模式 */
+      #app-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #f7f8fa;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+        overflow: hidden;
+      }
+
+      /* 暗黑模式 - 支持系统主题和手动切换 */
+      @media (prefers-color-scheme: dark) {
+        #app-loader {
+          background: #1a1a1a;
+        }
+      }
+
+      html.dark #app-loader {
+        background: #1a1a1a;
+      }
+
+      html.light #app-loader {
+        background: #f7f8fa;
+      }
+
+      #app-loader.loaded {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* 背景网格效果 */
+      #app-loader::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.08) 1px, transparent 1px);
+        background-size: 20px 20px;
+        animation: gridMove 20s linear infinite;
+      }
+
+      /* 暗黑模式网格 - 支持系统主题和手动切换 */
+      @media (prefers-color-scheme: dark) {
+        #app-loader::before {
+          background-image:
+            linear-gradient(rgba(74, 144, 226, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(74, 144, 226, 0.03) 1px, transparent 1px);
+        }
+      }
+
+      html.dark #app-loader::before {
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.03) 1px, transparent 1px);
+      }
+
+      html.light #app-loader::before {
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.08) 1px, transparent 1px);
+      }
+
+      @keyframes gridMove {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(20px, 20px); }
+      }
+
+      .loader-container {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .loader-logo {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 32px;
+        justify-content: center;
+        align-items: center;
+      }
+
+      @media (min-width: 640px) {
+        .loader-logo {
+          gap: 12px;
+          margin-bottom: 48px;
+        }
+      }
+
+      /* MSM 渐变字母 */
+      .logo-letter {
+        font-size: 48px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        animation: letterFloat 3s ease-in-out infinite;
+      }
+
+      @media (min-width: 640px) {
+        .logo-letter {
+          font-size: 72px;
+        }
+      }
+
+      /* 渐变色系：蓝→紫→粉 */
+      .logo-letter.m1 {
+        background: linear-gradient(135deg, #4A90E2 0%, #5B7FD8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(74, 144, 226, 0.4));
+        animation-delay: 0s;
+      }
+
+      .logo-letter.s {
+        background: linear-gradient(135deg, #8B7EC8 0%, #9B7AB8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(139, 126, 200, 0.4));
+        animation-delay: 0.2s;
+      }
+
+      .logo-letter.m2 {
+        background: linear-gradient(135deg, #C77B9E 0%, #E85D75 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(232, 93, 117, 0.4));
+        animation-delay: 0.4s;
+      }
+
+      @keyframes letterFloat {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      /* 装饰性矩形块 */
+      .loader-bars {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 24px;
+        height: 32px;
+        align-items: flex-end;
+      }
+
+      @media (min-width: 640px) {
+        .loader-bars {
+          gap: 8px;
+          margin-bottom: 32px;
+          height: 40px;
+        }
+      }
+
+      .loader-bar {
+        width: 4px;
+        background: linear-gradient(180deg, #4A90E2 0%, #8B7EC8 50%, #E85D75 100%);
+        border-radius: 9999px;
+        animation: barPulse 1.5s ease-in-out infinite;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      @media (min-width: 640px) {
+        .loader-bar {
+          width: 6px;
+        }
+      }
+
+      .loader-bar:nth-child(1) { height: 20%; animation-delay: 0s; }
+      .loader-bar:nth-child(2) { height: 40%; animation-delay: 0.1s; }
+      .loader-bar:nth-child(3) { height: 60%; animation-delay: 0.2s; }
+      .loader-bar:nth-child(4) { height: 80%; animation-delay: 0.3s; }
+      .loader-bar:nth-child(5) { height: 100%; animation-delay: 0.4s; }
+      .loader-bar:nth-child(6) { height: 80%; animation-delay: 0.5s; }
+      .loader-bar:nth-child(7) { height: 60%; animation-delay: 0.6s; }
+      .loader-bar:nth-child(8) { height: 40%; animation-delay: 0.7s; }
+      .loader-bar:nth-child(9) { height: 20%; animation-delay: 0.8s; }
+
+      @keyframes barPulse {
+        0%, 100% {
+          transform: scaleY(0.8);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scaleY(1.2);
+          opacity: 1;
+        }
+      }
+
+      .loader-text {
+        color: #4A90E2;
+        font-size: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        animation: textGlow 2s ease-in-out infinite;
+      }
+
+      @media (min-width: 640px) {
+        .loader-text {
+          font-size: 16px;
+        }
+      }
+
+      @keyframes textGlow {
+        0%, 100% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .loader-dots {
+        display: inline-block;
+        width: 24px;
+        text-align: left;
+      }
+
+      @media (min-width: 640px) {
+        .loader-dots {
+          width: 32px;
+        }
+      }
+
+      .loader-dots::after {
+        content: '';
+        animation: dots 1.5s steps(4, end) infinite;
+      }
+
+      @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-CDz96t7w.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-Bt7EHJHg.js">
+    <link rel="modulepreload" crossorigin href="/assets/editor-vendor-Ca1lPq8W.js">
+    <link rel="modulepreload" crossorigin href="/assets/utils-vendor-yfWiyOYv.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-vendor-DTdpf_eS.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DRccY1aP.css">
+  </head>
+  <body>
+    <!-- 初始加载动画 -->
+    <div id="app-loader">
+      <div class="loader-container">
+        <div class="loader-logo">
+          <span class="logo-letter m1">M</span>
+          <span class="logo-letter s">S</span>
+          <span class="logo-letter m2">M</span>
+        </div>
+        <div class="loader-bars">
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+          <div class="loader-bar"></div>
+        </div>
+        <div class="loader-text">
+          Loading<span class="loader-dots"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      // 当 React 应用挂载后移除加载动画
+      window.addEventListener('load', function() {
+        // 等待一小段时间确保 React 已经渲染
+        setTimeout(function() {
+          var loader = document.getElementById('app-loader');
+          if (loader) {
+            loader.classList.add('loaded');
+            // 动画结束后移除元素
+            setTimeout(function() {
+              loader.remove();
+            }, 500);
+          }
+        }, 100);
+      });
+    </script>
+  </body>
+</html>

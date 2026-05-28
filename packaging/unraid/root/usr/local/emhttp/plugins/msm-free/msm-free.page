@@ -1,0 +1,122 @@
+Menu="Settings:45"
+Title="MSM Free"
+Icon="network-wired"
+---
+<?php
+$cfgPath = "/boot/config/plugins/msm-free/msm-free.cfg";
+$rcPath = "/etc/rc.d/rc.msm-free";
+$defaults = [
+  "ENABLED" => "yes",
+  "HOST" => "0.0.0.0",
+  "PORT" => "7777",
+  "DATA_DIR" => "/mnt/user/appdata/msm-free",
+];
+
+function msm_free_load_cfg($path, $defaults) {
+  $cfg = $defaults;
+  if (!is_file($path)) {
+    return $cfg;
+  }
+  foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+    if (!preg_match('/^([A-Z_]+)="(.*)"$/', trim($line), $m)) {
+      continue;
+    }
+    $cfg[$m[1]] = stripcslashes($m[2]);
+  }
+  return $cfg;
+}
+
+function msm_free_quote($value) {
+  return '"' . addcslashes($value, "\\\"") . '"';
+}
+
+function msm_free_save_cfg($path, $cfg) {
+  if (!is_dir(dirname($path))) {
+    mkdir(dirname($path), 0775, true);
+  }
+  $body = "";
+  foreach (["ENABLED", "HOST", "PORT", "DATA_DIR"] as $key) {
+    $body .= $key . "=" . msm_free_quote($cfg[$key]) . "\n";
+  }
+  file_put_contents($path, $body);
+}
+
+function msm_free_e($value) {
+  return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
+}
+
+function msm_free_rc($rcPath, $action) {
+  if (!in_array($action, ["start", "stop", "restart", "status"], true) || !is_executable($rcPath)) {
+    return "";
+  }
+  return trim(shell_exec(escapeshellarg($rcPath) . " " . escapeshellarg($action) . " 2>&1"));
+}
+
+$cfg = msm_free_load_cfg($cfgPath, $defaults);
+$message = "";
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+  $cfg["ENABLED"] = isset($_POST["enabled"]) && $_POST["enabled"] === "yes" ? "yes" : "no";
+  $cfg["HOST"] = preg_replace('/[^0-9A-Za-z\.\:\-]/', '', $_POST["host"] ?? $defaults["HOST"]);
+  $port = (int)($_POST["port"] ?? $defaults["PORT"]);
+  $cfg["PORT"] = (string)max(1, min(65535, $port));
+  $dataDir = trim($_POST["data_dir"] ?? $defaults["DATA_DIR"]);
+  $cfg["DATA_DIR"] = $dataDir !== "" ? $dataDir : $defaults["DATA_DIR"];
+  msm_free_save_cfg($cfgPath, $cfg);
+
+  $action = $_POST["action"] ?? "save";
+  if (in_array($action, ["start", "stop", "restart"], true)) {
+    $message = msm_free_rc($rcPath, $action);
+  } else {
+    $message = "Settings saved";
+  }
+}
+
+$status = msm_free_rc($rcPath, "status");
+$serverHost = $_SERVER["SERVER_NAME"] ?? "";
+if ($serverHost === "" || $serverHost === "0.0.0.0") {
+  $serverHost = $_SERVER["HTTP_HOST"] ?? "tower";
+  $serverHost = preg_replace('/:.*/', '', $serverHost);
+}
+$webUrl = "http://" . $serverHost . ":" . $cfg["PORT"];
+?>
+<style>
+.msm-free-panel{max-width:960px}.msm-free-grid{display:grid;grid-template-columns:190px minmax(260px,1fr);gap:12px 18px;align-items:center}.msm-free-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.msm-free-note{margin:14px 0;padding:10px 12px;border-left:4px solid #2d89ef;background:rgba(45,137,239,.08)}.msm-free-status{font-family:monospace;padding:10px 12px;background:rgba(0,0,0,.06);border-radius:4px;display:inline-block}.msm-free-input{width:100%;max-width:520px}
+</style>
+<div class="msm-free-panel">
+  <div class="msm-free-note">
+    msm-free runs as a local Unraid rc service. A fresh install starts the management WebUI only. After the setup wizard is completed, msm-free restores enabled Mihomo, MosDNS, and nftables state on subsequent starts.
+  </div>
+  <?php if ($message !== ""): ?>
+    <blockquote><?=msm_free_e($message)?></blockquote>
+  <?php endif; ?>
+  <form method="post">
+    <div class="msm-free-grid">
+      <label>Enable WebUI service</label>
+      <select name="enabled" class="msm-free-input">
+        <option value="yes" <?=$cfg["ENABLED"] === "yes" ? "selected" : ""?>>Yes</option>
+        <option value="no" <?=$cfg["ENABLED"] === "no" ? "selected" : ""?>>No</option>
+      </select>
+
+      <label>Listen host</label>
+      <input class="msm-free-input" type="text" name="host" value="<?=msm_free_e($cfg["HOST"])?>">
+
+      <label>Listen port</label>
+      <input class="msm-free-input" type="number" min="1" max="65535" name="port" value="<?=msm_free_e($cfg["PORT"])?>">
+
+      <label>Data directory</label>
+      <input class="msm-free-input" type="text" name="data_dir" value="<?=msm_free_e($cfg["DATA_DIR"])?>">
+
+      <label>Status</label>
+      <span class="msm-free-status"><?=msm_free_e($status)?></span>
+    </div>
+
+    <div class="msm-free-actions">
+      <button type="submit" name="action" value="save">Save</button>
+      <button type="submit" name="action" value="start">Start</button>
+      <button type="submit" name="action" value="stop">Stop</button>
+      <button type="submit" name="action" value="restart">Restart</button>
+      <a class="button" target="_blank" rel="noopener" href="<?=msm_free_e($webUrl)?>">Open WebUI</a>
+    </div>
+  </form>
+</div>

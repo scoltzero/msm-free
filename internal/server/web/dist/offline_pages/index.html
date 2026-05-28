@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MSM 离线页面导出</title>
+  <style>
+    body { margin: 0; background: #f8fafc; color: #0f172a; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 1120px; margin: 0 auto; padding: 32px 20px; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0 0 24px; color: #475569; }
+    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; font-weight: 600; color: #334155; }
+    tr:last-child td { border-bottom: 0; }
+    a { color: #2563eb; text-decoration: none; font-weight: 600; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #334155; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MSM 离线页面导出</h1>
+    <p>这些文件是渲染后的静态 HTML 快照，不会再请求后台 API。点击下面文件查看对应页面。</p>
+    <table>
+      <thead><tr><th>文件</th><th>原路由</th><th>页面标题</th></tr></thead>
+      <tbody>
+        <tr><td><a href="00_login.html">00_login.html</a></td><td><code>/login</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="01_dashboard.html">01_dashboard.html</a></td><td><code>/</code></td><td>仪表盘</td></tr>
+        <tr><td><a href="02_mosdns.html">02_mosdns.html</a></td><td><code>/mosdns</code></td><td>MosDNS 管理</td></tr>
+        <tr><td><a href="03_mosdns_overview.html">03_mosdns_overview.html</a></td><td><code>/mosdns/overview</code></td><td>MosDNS 概述</td></tr>
+        <tr><td><a href="04_mosdns_service_config.html">04_mosdns_service_config.html</a></td><td><code>/mosdns/service-config</code></td><td>配置管理</td></tr>
+        <tr><td><a href="05_mosdns_logs.html">05_mosdns_logs.html</a></td><td><code>/mosdns/logs</code></td><td>日志查看</td></tr>
+        <tr><td><a href="06_mosdns_rules.html">06_mosdns_rules.html</a></td><td><code>/mosdns/rules</code></td><td>规则管理</td></tr>
+        <tr><td><a href="07_mosdns_clients.html">07_mosdns_clients.html</a></td><td><code>/mosdns/clients</code></td><td>客户端设置</td></tr>
+        <tr><td><a href="08_mosdns_query_log.html">08_mosdns_query_log.html</a></td><td><code>/mosdns/query-log</code></td><td>查询日志</td></tr>
+        <tr><td><a href="09_mosdns_system.html">09_mosdns_system.html</a></td><td><code>/mosdns/system</code></td><td>系统控制</td></tr>
+        <tr><td><a href="10_proxy.html">10_proxy.html</a></td><td><code>/proxy</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="11_mihomo_overview.html">11_mihomo_overview.html</a></td><td><code>/mihomo/overview</code></td><td>Mihomo 概览</td></tr>
+        <tr><td><a href="12_mihomo_proxies.html">12_mihomo_proxies.html</a></td><td><code>/mihomo/proxies</code></td><td>代理</td></tr>
+        <tr><td><a href="13_mihomo_rules.html">13_mihomo_rules.html</a></td><td><code>/mihomo/rules</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="14_mihomo_connections.html">14_mihomo_connections.html</a></td><td><code>/mihomo/connections</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="15_mihomo_logs.html">15_mihomo_logs.html</a></td><td><code>/mihomo/logs</code></td><td>日志查看</td></tr>
+        <tr><td><a href="16_mihomo_config.html">16_mihomo_config.html</a></td><td><code>/mihomo/config</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="17_singbox_overview.html">17_singbox_overview.html</a></td><td><code>/singbox/overview</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="18_singbox_config.html">18_singbox_config.html</a></td><td><code>/singbox/config</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="19_singbox_logs.html">19_singbox_logs.html</a></td><td><code>/singbox/logs</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="20_process.html">20_process.html</a></td><td><code>/process</code></td><td>进程管理</td></tr>
+        <tr><td><a href="21_config.html">21_config.html</a></td><td><code>/config</code></td><td>配置管理</td></tr>
+        <tr><td><a href="22_logs.html">22_logs.html</a></td><td><code>/logs</code></td><td>日志查看</td></tr>
+        <tr><td><a href="23_logs_mosdns.html">23_logs_mosdns.html</a></td><td><code>/logs/mosdns</code></td><td>日志查看</td></tr>
+        <tr><td><a href="24_logs_singbox.html">24_logs_singbox.html</a></td><td><code>/logs/singbox</code></td><td>日志查看</td></tr>
+        <tr><td><a href="25_logs_mihomo.html">25_logs_mihomo.html</a></td><td><code>/logs/mihomo</code></td><td>日志查看</td></tr>
+        <tr><td><a href="26_users.html">26_users.html</a></td><td><code>/users</code></td><td>用户管理</td></tr>
+        <tr><td><a href="27_settings.html">27_settings.html</a></td><td><code>/settings</code></td><td>系统设置</td></tr>
+        <tr><td><a href="28_system.html">28_system.html</a></td><td><code>/system</code></td><td>系统诊断</td></tr>
+        <tr><td><a href="29_setup_redirect.html">29_setup_redirect.html</a></td><td><code>/setup</code></td><td>仪表盘</td></tr>
+        <tr><td><a href="30_legacy_proxy_overview_redirect.html">30_legacy_proxy_overview_redirect.html</a></td><td><code>/proxy/overview</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="31_legacy_proxy_config_redirect.html">31_legacy_proxy_config_redirect.html</a></td><td><code>/proxy/config</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="32_legacy_proxy_logs_redirect.html">32_legacy_proxy_logs_redirect.html</a></td><td><code>/proxy/logs</code></td><td>代理服务管理</td></tr>
+        <tr><td><a href="33_legacy_proxy_mihomo_redirect.html">33_legacy_proxy_mihomo_redirect.html</a></td><td><code>/proxy/mihomo</code></td><td>Mihomo 概览</td></tr>
+        <tr><td><a href="34_legacy_proxy_mihomo_proxies_redirect.html">34_legacy_proxy_mihomo_proxies_redirect.html</a></td><td><code>/proxy/mihomo/proxies</code></td><td>代理</td></tr>
+        <tr><td><a href="35_legacy_proxy_mihomo_rules_redirect.html">35_legacy_proxy_mihomo_rules_redirect.html</a></td><td><code>/proxy/mihomo/rules</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="36_legacy_proxy_mihomo_connections_redirect.html">36_legacy_proxy_mihomo_connections_redirect.html</a></td><td><code>/proxy/mihomo/connections</code></td><td>MSM 管理平台</td></tr>
+        <tr><td><a href="37_legacy_proxy_mihomo_logs_redirect.html">37_legacy_proxy_mihomo_logs_redirect.html</a></td><td><code>/proxy/mihomo/logs</code></td><td>日志查看</td></tr>
+        <tr><td><a href="38_legacy_proxy_mihomo_config_redirect.html">38_legacy_proxy_mihomo_config_redirect.html</a></td><td><code>/proxy/mihomo/config</code></td><td>MSM 管理平台</td></tr>
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

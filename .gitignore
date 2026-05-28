@@ -1,0 +1,11 @@
+data/
+dist/
+!internal/server/web/dist/
+!internal/server/web/dist/**
+node_modules/
+web/node_modules/
+.DS_Store
+.claude/
+output/
+scraped-pages/
+msm_html_export.tar.gz

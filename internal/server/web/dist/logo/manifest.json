@@ -1,0 +1,33 @@
+{
+  "name": "MSM 管理平台",
+  "short_name": "MSM",
+  "description": "MosDNS、SingBox、Mihomo 统一管理平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3666AC",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo/logo-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo/logo-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}

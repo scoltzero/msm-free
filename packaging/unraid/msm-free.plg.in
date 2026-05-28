@@ -1,0 +1,64 @@
+<!DOCTYPE PLUGIN [
+<!ENTITY name "msm-free">
+<!ENTITY author "luochuhan">
+<!ENTITY version "__PLUGIN_VERSION__">
+<!ENTITY githubRepo "__GITHUB_REPO__">
+<!ENTITY releaseTag "__RELEASE_TAG__">
+<!ENTITY packageName "msm-free-__PLUGIN_VERSION__-x86_64-1">
+<!ENTITY packageFile "&packageName;.txz">
+<!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
+<!ENTITY packageSHA256 "__PACKAGE_SHA256__">
+]>
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
+  <CHANGES>
+    <![CDATA[
+### msm-free __PLUGIN_VERSION__
+- Initial Unraid plugin package.
+- Installs msm-free WebUI manager and stores persistent data under /mnt/user/appdata/msm-free by default.
+- Does not apply nftables or network rules during plugin installation.
+    ]]>
+  </CHANGES>
+
+  <FILE Name="/boot/config/plugins/&name;/&packageFile;" Run="upgradepkg --install-new --reinstall">
+    <URL>&packageURL;</URL>
+    <SHA256>&packageSHA256;</SHA256>
+  </FILE>
+
+  <FILE Run="/bin/bash">
+    <INLINE>
+      <![CDATA[
+set -e
+mkdir -p /boot/config/plugins/msm-free
+cfg="/boot/config/plugins/msm-free/msm-free.cfg"
+if [ ! -f "$cfg" ]; then
+  cat > "$cfg" <<'CFGEOF'
+ENABLED="yes"
+HOST="0.0.0.0"
+PORT="7777"
+DATA_DIR="/mnt/user/appdata/msm-free"
+CFGEOF
+fi
+chmod 0755 /etc/rc.d/rc.msm-free 2>/dev/null || true
+chmod 0755 /usr/local/emhttp/plugins/msm-free/event/started 2>/dev/null || true
+chmod 0755 /usr/local/emhttp/plugins/msm-free/event/stopping_svcs 2>/dev/null || true
+if grep -q '^ENABLED="yes"' "$cfg" && [ -x /etc/rc.d/rc.msm-free ]; then
+  nohup /etc/rc.d/rc.msm-free start >/dev/null 2>&1 &
+fi
+      ]]>
+    </INLINE>
+  </FILE>
+
+  <FILE Run="/bin/bash" Method="remove">
+    <INLINE>
+      <![CDATA[
+set +e
+if [ -x /etc/rc.d/rc.msm-free ]; then
+  /etc/rc.d/rc.msm-free stop
+fi
+removepkg msm-free-__PLUGIN_VERSION__-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-__PLUGIN_VERSION__-x86_64-1.txz
+echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
+      ]]>
+    </INLINE>
+  </FILE>
+</PLUGIN>

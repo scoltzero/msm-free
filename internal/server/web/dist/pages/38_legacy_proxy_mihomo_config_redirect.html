@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN" class="light"><head><meta name="msm-export" content="route=/proxy/mihomo/config; finalUrl=http://192.168.10.3:7777/mihomo/config; exportedAt=2026-05-28T04:28:09.007Z"><style>.ͼ1.cm-focused {outline: 1px dotted #212121;}
+.ͼ1 {position: relative !important; box-sizing: border-box; display: flex !important; flex-direction: column;}
+.ͼ1 .cm-scroller {display: flex !important; align-items: flex-start !important; font-family: monospace; line-height: 1.4; height: 100%; overflow-x: auto; position: relative; z-index: 0; overflow-anchor: none;}
+.ͼ1 .cm-content[contenteditable=true] {-webkit-user-modify: read-write-plaintext-only;}
+.ͼ1 .cm-content {margin: 0; flex-grow: 2; flex-shrink: 0; display: block; white-space: pre; word-wrap: normal; box-sizing: border-box; min-height: 100%; padding: 4px 0; outline: none;}
+.ͼ1 .cm-lineWrapping {white-space: pre-wrap; white-space: break-spaces; word-break: break-word; overflow-wrap: anywhere; flex-shrink: 1;}
+.ͼ2 .cm-content {caret-color: black;}
+.ͼ3 .cm-content {caret-color: white;}
+.ͼ1 .cm-line {display: block; padding: 0 2px 0 6px;}
+.ͼ1 .cm-layer > * {position: absolute;}
+.ͼ1 .cm-layer {position: absolute; left: 0; top: 0; contain: size style;}
+.ͼ2 .cm-selectionBackground {background: #d9d9d9;}
+.ͼ3 .cm-selectionBackground {background: #222;}
+.ͼ2.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {background: #d7d4f0;}
+.ͼ3.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {background: #233;}
+.ͼ1 .cm-cursorLayer {pointer-events: none;}
+.ͼ1.cm-focused > .cm-scroller > .cm-cursorLayer {animation: steps(1) cm-blink 1.2s infinite;}
+@keyframes cm-blink {50% {opacity: 0;}}
+@keyframes cm-blink2 {50% {opacity: 0;}}
+.ͼ1 .cm-cursor, .ͼ1 .cm-dropCursor {border-left: 1.2px solid black; margin-left: -0.6px; pointer-events: none;}
+.ͼ1 .cm-cursor {display: none;}
+.ͼ3 .cm-cursor {border-left-color: #ddd;}
+.ͼ1 .cm-dropCursor {position: absolute;}
+.ͼ1.cm-focused > .cm-scroller > .cm-cursorLayer .cm-cursor {display: block;}
+.ͼ1 .cm-iso {unicode-bidi: isolate;}
+.ͼ1 .cm-announced {position: fixed; top: -10000px;}
+@media print {.ͼ1 .cm-announced {display: none;}}
+.ͼ2 .cm-activeLine {background-color: #cceeff44;}
+.ͼ3 .cm-activeLine {background-color: #99eeff33;}
+.ͼ2 .cm-specialChar {color: red;}
+.ͼ3 .cm-specialChar {color: #f78;}
+.ͼ1 .cm-gutters {flex-shrink: 0; display: flex; height: 100%; box-sizing: border-box; z-index: 200;}
+.ͼ1 .cm-gutters-before {inset-inline-start: 0;}
+.ͼ1 .cm-gutters-after {inset-inline-end: 0;}
+.ͼ2 .cm-gutters.cm-gutters-before {border-right-width: 1px;}
+.ͼ2 .cm-gutters.cm-gutters-after {border-left-width: 1px;}
+.ͼ2 .cm-gutters {background-color: #f5f5f5; color: #6c6c6c; border: 0px solid #ddd;}
+.ͼ3 .cm-gutters {background-color: #333338; color: #ccc;}
+.ͼ1 .cm-gutter {display: flex !important; flex-direction: column; flex-shrink: 0; box-sizing: border-box; min-height: 100%; overflow: hidden;}
+.ͼ1 .cm-gutterElement {box-sizing: border-box;}
+.ͼ1 .cm-lineNumbers .cm-gutterElement {padding: 0 3px 0 5px; min-width: 20px; text-align: right; white-space: nowrap;}
+.ͼ2 .cm-activeLineGutter {background-color: #e2f2ff;}
+.ͼ3 .cm-activeLineGutter {background-color: #222227;}
+.ͼ1 .cm-panels {box-sizing: border-box; position: sticky; left: 0; right: 0; z-index: 300;}
+.ͼ2 .cm-panels {background-color: #f5f5f5; color: black;}
+.ͼ2 .cm-panels-top {border-bottom: 1px solid #ddd;}
+.ͼ2 .cm-panels-bottom {border-top: 1px solid #ddd;}
+.ͼ3 .cm-panels {background-color: #333338; color: white;}
+.ͼ1 .cm-dialog label {font-size: 80%;}
+.ͼ1 .cm-dialog {padding: 2px 19px 4px 6px; position: relative;}
+.ͼ1 .cm-dialog-close {position: absolute; top: 3px; right: 4px; background-color: inherit; border: none; font: inherit; font-size: 14px; padding: 0;}
+.ͼ1 .cm-tab {display: inline-block; overflow: hidden; vertical-align: bottom;}
+.ͼ1 .cm-widgetBuffer {vertical-align: text-top; height: 1em; width: 0; display: inline;}
+.ͼ1 .cm-placeholder {color: #888; display: inline-block; vertical-align: top; user-select: none;}
+.ͼ1 .cm-highlightSpace {background-image: radial-gradient(circle at 50% 55%, #aaa 20%, transparent 5%); background-position: center;}
+.ͼ1 .cm-highlightTab {background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23888" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>'); background-size: auto 100%; background-position: right 90%; background-repeat: no-repeat;}
+.ͼ1 .cm-trailingSpace {background-color: #ff332255;}
+.ͼ1 .cm-button {vertical-align: middle; color: inherit; font-size: 70%; padding: .2em 1em; border-radius: 1px;}
+.ͼ2 .cm-button:active {background-image: linear-gradient(#b4b4b4, #d0d3d6);}
+.ͼ2 .cm-button {background-image: linear-gradient(#eff1f5, #d9d9df); border: 1px solid #888;}
+.ͼ3 .cm-button:active {background-image: linear-gradient(#111, #333);}
+.ͼ3 .cm-button {background-image: linear-gradient(#393939, #111); border: 1px solid #888;}
+.ͼ1 .cm-textfield {vertical-align: middle; color: inherit; font-size: 70%; border: 1px solid silver; padding: .2em .5em;}
+.ͼ2 .cm-textfield {background-color: white;}
+.ͼ3 .cm-textfield {border: 1px solid #555; background-color: inherit;}
+.ͼ1 .cm-selectionMatch {background-color: #99ff7780;}
+.ͼ1 .cm-searchMatch .cm-selectionMatch {background-color: transparent;}
+.ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul > li, .ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul > completion-section {padding: 1px 3px; line-height: 1.2;}
+.ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul > li {overflow-x: hidden; text-overflow: ellipsis; cursor: pointer;}
+.ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul > completion-section {display: list-item; border-bottom: 1px solid silver; padding-left: 0.5em; opacity: 0.7;}
+.ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul {font-family: monospace; white-space: nowrap; overflow: hidden auto; max-width: 700px; max-width: min(700px, 95vw); min-width: 250px; max-height: 10em; height: 100%; list-style: none; margin: 0; padding: 0;}
+.ͼ2 .cm-tooltip-autocomplete ul li[aria-selected] {background: #17c; color: white;}
+.ͼ2 .cm-tooltip-autocomplete-disabled ul li[aria-selected] {background: #777;}
+.ͼ3 .cm-tooltip-autocomplete ul li[aria-selected] {background: #347; color: white;}
+.ͼ3 .cm-tooltip-autocomplete-disabled ul li[aria-selected] {background: #444;}
+.ͼ1 .cm-completionListIncompleteTop:before, .ͼ1 .cm-completionListIncompleteBottom:after {content: "···"; opacity: 0.5; display: block; text-align: center;}
+.ͼ1 .cm-tooltip.cm-completionInfo {position: absolute; padding: 3px 9px; width: max-content; max-width: 400px; box-sizing: border-box; white-space: pre-line;}
+.ͼ1 .cm-completionInfo.cm-completionInfo-left {right: 100%;}
+.ͼ1 .cm-completionInfo.cm-completionInfo-right {left: 100%;}
+.ͼ1 .cm-completionInfo.cm-completionInfo-left-narrow {right: 30px;}
+.ͼ1 .cm-completionInfo.cm-completionInfo-right-narrow {left: 30px;}
+.ͼ2 .cm-snippetField {background-color: #00000022;}
+.ͼ3 .cm-snippetField {background-color: #ffffff22;}
+.ͼ1 .cm-snippetFieldPosition {vertical-align: text-top; width: 0; height: 1.15em; display: inline-block; margin: 0 -0.7px -.7em; border-left: 1.4px dotted #888;}
+.ͼ1 .cm-completionMatchedText {text-decoration: underline;}
+.ͼ1 .cm-completionDetail {margin-left: 0.5em; font-style: italic;}
+.ͼ1 .cm-completionIcon {font-size: 90%; width: .8em; display: inline-block; text-align: center; padding-right: .6em; opacity: 0.6; box-sizing: content-box;}
+.ͼ1 .cm-completionIcon-function:after, .ͼ1 .cm-completionIcon-method:after {content: 'ƒ';}
+.ͼ1 .cm-completionIcon-class:after {content: '○';}
+.ͼ1 .cm-completionIcon-interface:after {content: '◌';}
+.ͼ1 .cm-completionIcon-variable:after {content: '𝑥';}
+.ͼ1 .cm-completionIcon-constant:after {content: '𝐶';}
+.ͼ1 .cm-completionIcon-type:after {content: '𝑡';}
+.ͼ1 .cm-completionIcon-enum:after {content: '∪';}
+.ͼ1 .cm-completionIcon-property:after {content: '□';}
+.ͼ1 .cm-completionIcon-keyword:after {content: '🔑︎';}
+.ͼ1 .cm-completionIcon-namespace:after {content: '▢';}
+.ͼ1 .cm-completionIcon-text:after {content: 'abc'; font-size: 50%; vertical-align: middle;}
+.ͼ1 .cm-tooltip {z-index: 500; box-sizing: border-box;}
+.ͼ2 .cm-tooltip {border: 1px solid #bbb; background-color: #f5f5f5;}
+.ͼ2 .cm-tooltip-section:not(:first-child) {border-top: 1px solid #bbb;}
+.ͼ3 .cm-tooltip {background-color: #333338; color: white;}
+.ͼ1 .cm-tooltip-arrow:before, .ͼ1 .cm-tooltip-arrow:after {content: ''; position: absolute; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent;}
+.ͼ1 .cm-tooltip-above .cm-tooltip-arrow:before {border-top: 7px solid #bbb;}
+.ͼ1 .cm-tooltip-above .cm-tooltip-arrow:after {border-top: 7px solid #f5f5f5; bottom: 1px;}
+.ͼ1 .cm-tooltip-above .cm-tooltip-arrow {bottom: -7px;}
+.ͼ1 .cm-tooltip-below .cm-tooltip-arrow:before {border-bottom: 7px solid #bbb;}
+.ͼ1 .cm-tooltip-below .cm-tooltip-arrow:after {border-bottom: 7px solid #f5f5f5; top: 1px;}
+.ͼ1 .cm-tooltip-below .cm-tooltip-arrow {top: -7px;}
+.ͼ1 .cm-tooltip-arrow {height: 7px; width: 14px; position: absolute; z-index: -1; overflow: hidden;}
+.ͼ3 .cm-tooltip .cm-tooltip-arrow:before {border-top-color: #333338; border-bottom-color: #333338;}
+.ͼ3 .cm-tooltip .cm-tooltip-arrow:after {border-top-color: transparent; border-bottom-color: transparent;}
+.ͼ1.cm-focused .cm-matchingBracket {background-color: #328c8252;}
+.ͼ1.cm-focused .cm-nonmatchingBracket {background-color: #bb555544;}
+.ͼ1 .cm-foldPlaceholder {background-color: #eee; border: 1px solid #ddd; color: #888; border-radius: .2em; margin: 0 1px; padding: 0 1px; cursor: pointer;}
+.ͼ1 .cm-foldGutter span {padding: 0 1px; cursor: pointer;}
+.ͼ1p {color: #569cd6;}
+.ͼ1q {color: #c586c0;}
+.ͼ1r {color: #9cdcfe;}
+.ͼ1s {font-weight: bold; color: #9cdcfe;}
+.ͼ1t {color: #4ec9b0;}
+.ͼ1u {color: #dcdcaa;}
+.ͼ1v {color: #b5cea8;}
+.ͼ1w {color: #d4d4d4;}
+.ͼ1x {color: #d16969;}
+.ͼ1y {color: #ce9178;}
+.ͼ1z {color: #808080;}
+.ͼ20 {font-weight: bold;}
+.ͼ21 {font-style: italic;}
+.ͼ22 {text-decoration: line-through;}
+.ͼ23 {color: #6a9955;}
+.ͼ24 {color: #6a9955; text-decoration: underline;}
+.ͼ25 {color: #ff0000;}
+.ͼ1o .cm-gutters {background-color: #1e1e1e; color: #838383;}
+.ͼ1o {background-color: #1e1e1e; color: #9cdcfe;}
+.ͼ1o.cm-editor .cm-scroller {font-family: Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace;}
+.ͼ1o .cm-content {caret-color: #c6c6c6;}
+.ͼ1o .cm-cursor, .ͼ1o .cm-dropCursor {border-left-color: #c6c6c6;}
+.ͼ1o .cm-activeLine {background-color: #ffffff0f;}
+.ͼ1o .cm-activeLineGutter {color: #fff; background-color: #ffffff0f;}
+.ͼ1o.cm-focused .cm-selectionBackground, .ͼ1o .cm-line::selection, .ͼ1o .cm-selectionLayer .cm-selectionBackground, .ͼ1o .cm-content ::selection {background: #6199ff2f !important;}
+.ͼ1o .cm-selectionMatch {background-color: #72a1ff59;}
+.ͼ5 {color: #404740;}
+.ͼ6 {text-decoration: underline;}
+.ͼ7 {text-decoration: underline; font-weight: bold;}
+.ͼ8 {font-style: italic;}
+.ͼ9 {font-weight: bold;}
+.ͼa {text-decoration: line-through;}
+.ͼb {color: #708;}
+.ͼc {color: #219;}
+.ͼd {color: #164;}
+.ͼe {color: #a11;}
+.ͼf {color: #e40;}
+.ͼg {color: #00f;}
+.ͼh {color: #30a;}
+.ͼi {color: #085;}
+.ͼj {color: #167;}
+.ͼk {color: #256;}
+.ͼl {color: #00c;}
+.ͼm {color: #940;}
+.ͼn {color: #f00;}
+.ͼ2e {height: 100%;}
+.ͼ2e .cm-scroller {height: 100% !important;}
+.ͼ2d {height: 100%;}
+.ͼ2d .cm-scroller {height: 100% !important;}
+.ͼ2c {height: 100%;}
+.ͼ2c .cm-scroller {height: 100% !important;}
+.ͼ2b {height: 100%;}
+.ͼ2b .cm-scroller {height: 100% !important;}
+.ͼ2a {height: 100%;}
+.ͼ2a .cm-scroller {height: 100% !important;}
+.ͼ29 {height: 100%;}
+.ͼ29 .cm-scroller {height: 100% !important;}
+.ͼ27 {height: 100%;}
+.ͼ27 .cm-scroller {height: 100% !important;}
+.ͼ4 .cm-line ::selection, .ͼ4 .cm-line::selection {background-color: transparent !important;}
+.ͼ4 .cm-line {caret-color: transparent !important;}
+.ͼ4 .cm-content :focus::selection, .ͼ4 .cm-content :focus ::selection {background-color: Highlight !important;}
+.ͼ4 .cm-content :focus {caret-color: initial !important;}
+.ͼ4 .cm-content {caret-color: transparent !important;}
+</style>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../logo/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MSM - Mosdns Singbox Mihomo Manager - 统一管理 DNS 和代理服务的可视化平台">
+    <meta name="theme-color" content="#2563eb">
+
+    <!-- 防止缓存 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="../logo/manifest.json">
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="../logo/logo-square.svg">
+
+    <title>MSM 管理平台</title>
+
+    <style>
+      /* 初始加载动画样式 - 现代科技风格 - 支持明亮/暗黑模式 */
+      #app-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #f7f8fa;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+        overflow: hidden;
+      }
+
+      /* 暗黑模式 - 支持系统主题和手动切换 */
+      @media (prefers-color-scheme: dark) {
+        #app-loader {
+          background: #1a1a1a;
+        }
+      }
+
+      html.dark #app-loader {
+        background: #1a1a1a;
+      }
+
+      html.light #app-loader {
+        background: #f7f8fa;
+      }
+
+      #app-loader.loaded {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* 背景网格效果 */
+      #app-loader::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.08) 1px, transparent 1px);
+        background-size: 20px 20px;
+        animation: gridMove 20s linear infinite;
+      }
+
+      /* 暗黑模式网格 - 支持系统主题和手动切换 */
+      @media (prefers-color-scheme: dark) {
+        #app-loader::before {
+          background-image:
+            linear-gradient(rgba(74, 144, 226, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(74, 144, 226, 0.03) 1px, transparent 1px);
+        }
+      }
+
+      html.dark #app-loader::before {
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.03) 1px, transparent 1px);
+      }
+
+      html.light #app-loader::before {
+        background-image:
+          linear-gradient(rgba(74, 144, 226, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74, 144, 226, 0.08) 1px, transparent 1px);
+      }
+
+      @keyframes gridMove {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(20px, 20px); }
+      }
+
+      .loader-container {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .loader-logo {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 32px;
+        justify-content: center;
+        align-items: center;
+      }
+
+      @media (min-width: 640px) {
+        .loader-logo {
+          gap: 12px;
+          margin-bottom: 48px;
+        }
+      }
+
+      /* MSM 渐变字母 */
+      .logo-letter {
+        font-size: 48px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        animation: letterFloat 3s ease-in-out infinite;
+      }
+
+      @media (min-width: 640px) {
+        .logo-letter {
+          font-size: 72px;
+        }
+      }
+
+      /* 渐变色系：蓝→紫→粉 */
+      .logo-letter.m1 {
+        background: linear-gradient(135deg, #4A90E2 0%, #5B7FD8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(74, 144, 226, 0.4));
+        animation-delay: 0s;
+      }
+
+      .logo-letter.s {
+        background: linear-gradient(135deg, #8B7EC8 0%, #9B7AB8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(139, 126, 200, 0.4));
+        animation-delay: 0.2s;
+      }
+
+      .logo-letter.m2 {
+        background: linear-gradient(135deg, #C77B9E 0%, #E85D75 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 4px 12px rgba(232, 93, 117, 0.4));
+        animation-delay: 0.4s;
+      }
+
+      @keyframes letterFloat {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      /* 装饰性矩形块 */
+      .loader-bars {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 24px;
+        height: 32px;
+        align-items: flex-end;
+      }
+
+      @media (min-width: 640px) {
+        .loader-bars {
+          gap: 8px;
+          margin-bottom: 32px;
+          height: 40px;
+        }
+      }
+
+      .loader-bar {
+        width: 4px;
+        background: linear-gradient(180deg, #4A90E2 0%, #8B7EC8 50%, #E85D75 100%);
+        border-radius: 9999px;
+        animation: barPulse 1.5s ease-in-out infinite;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      @media (min-width: 640px) {
+        .loader-bar {
+          width: 6px;
+        }
+      }
+
+      .loader-bar:nth-child(1) { height: 20%; animation-delay: 0s; }
+      .loader-bar:nth-child(2) { height: 40%; animation-delay: 0.1s; }
+      .loader-bar:nth-child(3) { height: 60%; animation-delay: 0.2s; }
+      .loader-bar:nth-child(4) { height: 80%; animation-delay: 0.3s; }
+      .loader-bar:nth-child(5) { height: 100%; animation-delay: 0.4s; }
+      .loader-bar:nth-child(6) { height: 80%; animation-delay: 0.5s; }
+      .loader-bar:nth-child(7) { height: 60%; animation-delay: 0.6s; }
+      .loader-bar:nth-child(8) { height: 40%; animation-delay: 0.7s; }
+      .loader-bar:nth-child(9) { height: 20%; animation-delay: 0.8s; }
+
+      @keyframes barPulse {
+        0%, 100% {
+          transform: scaleY(0.8);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scaleY(1.2);
+          opacity: 1;
+        }
+      }
+
+      .loader-text {
+        color: #4A90E2;
+        font-size: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        animation: textGlow 2s ease-in-out infinite;
+      }
+
+      @media (min-width: 640px) {
+        .loader-text {
+          font-size: 16px;
+        }
+      }
+
+      @keyframes textGlow {
+        0%, 100% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .loader-dots {
+        display: inline-block;
+        width: 24px;
+        text-align: left;
+      }
+
+      @media (min-width: 640px) {
+        .loader-dots {
+          width: 32px;
+        }
+      }
+
+      .loader-dots::after {
+        content: '';
+        animation: dots 1.5s steps(4, end) infinite;
+      }
+
+      @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+      }
+    </style>
+    
+    <link rel="modulepreload" crossorigin="" href="../assets/react-vendor-Bt7EHJHg.js">
+    <link rel="modulepreload" crossorigin="" href="../assets/editor-vendor-Ca1lPq8W.js">
+    <link rel="modulepreload" crossorigin="" href="../assets/utils-vendor-yfWiyOYv.js">
+    <link rel="modulepreload" crossorigin="" href="../assets/ui-vendor-DTdpf_eS.js">
+    <link rel="stylesheet" crossorigin="" href="../assets/index-DRccY1aP.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="../assets/index-1ZLI1t6p.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/Card-uiOvXNOT.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/Badge-CXuVhW4V.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/Tabs-D_HCB168.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/ServiceControl-CdHqp42i.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/ConfigPanel-C1d0nLTJ.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/VersionManager-BhW9kBLE.js"><link rel="modulepreload" as="script" crossorigin="" href="../assets/LogsPage-BEZLBejt.js"></head>
+  <body>
+    <!-- 初始加载动画 -->
+    
+
+    <div id="root"><div class="min-h-screen bg-background"><header class="fixed top-0 z-50 w-full border-b border-border/50 glass-effect-strong shadow-apple"><div class="flex h-14 md:h-16 items-center px-3 md:px-4"><button class="hidden md:block mr-2 md:mr-4 rounded-[10px] p-2 hover:bg-accent/50 transition-all active:scale-95"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-panel-left-close h-5 w-5 text-foreground" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg></button><div class="flex items-center gap-2 md:gap-3"><div class="p-1 md:p-1.5 rounded-[10px] bg-gradient-to-br from-primary/10 to-secondary/10"><img alt="MSM" class="h-5 w-5 md:h-6 md:w-6" src="../logo/logo-square.svg"></div><span class="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">MSM</span></div><div class="ml-auto flex items-center gap-1 md:gap-2"><div class="relative"><button class="rounded-[10px] p-2 hover:bg-accent/50 hover:text-primary transition-all active:scale-95 text-gray-700 dark:text-gray-300" title="切换主题"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sun h-5 w-5" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></button></div><div class="relative"><button class="rounded-[10px] p-2 hover:bg-accent/50 hover:text-secondary transition-all active:scale-95 text-gray-700 dark:text-gray-300" title="语言"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-languages h-5 w-5" aria-hidden="true"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg></button></div><div class="relative flex-shrink-0"><button class="flex items-center gap-2 md:gap-3 hover:opacity-80 transition-opacity"><div class="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-primary-foreground font-semibold shadow-apple text-sm">R</div><div class="hidden lg:flex items-center gap-2"><div class="text-left"><div class="text-sm font-medium text-foreground">root</div><div class="text-xs text-muted-foreground">管理员</div></div></div></button></div></div></div></header><aside class="hidden md:block fixed left-0 top-14 md:top-16 z-40 h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)] border-r border-border/50 glass-effect-strong shadow-apple-lg transition-all duration-300" style="width: 224px;"><div class="flex flex-col h-full"><nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1"><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard h-5 w-5 flex-shrink-0" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg><span class="flex-1 text-sm truncate">仪表盘</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mosdns" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-server h-5 w-5 flex-shrink-0" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg><span class="flex-1 text-sm truncate">MosDNS</span><button class="p-1 rounded hover:bg-accent/70 transition-colors flex items-center justify-center flex-shrink-0" title="展开"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down h-4 w-4" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/proxy" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-box h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg><span class="flex-1 text-sm truncate">代理服务</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 bg-primary/10 text-primary font-medium shadow-sm" href="/mihomo" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network h-5 w-5 flex-shrink-0 text-primary" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg><span class="flex-1 text-sm truncate">Mihomo</span><button class="p-1 rounded hover:bg-accent/70 transition-colors flex items-center justify-center flex-shrink-0" title="收起"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-up h-4 w-4" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg></button></a></div></div><div class="mt-1 space-y-1"><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mihomo/overview" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-column h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg><span class="flex-1 text-sm truncate">概览</span></a></div></div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mihomo/proxies" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network h-5 w-5 flex-shrink-0" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg><span class="flex-1 text-sm truncate">代理节点</span></a></div></div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mihomo/rules" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg><span class="flex-1 text-sm truncate">规则管理</span></a></div></div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mihomo/connections" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cable h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M17 19a1 1 0 0 1-1-1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a1 1 0 0 1-1 1z"></path><path d="M17 21v-2"></path><path d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10"></path><path d="M21 21v-2"></path><path d="M3 5V3"></path><path d="M4 10a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2z"></path><path d="M7 5V3"></path></svg><span class="flex-1 text-sm truncate">连接管理</span></a></div></div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 bg-primary/10 text-primary font-medium shadow-sm" href="/mihomo/config" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-cog h-5 w-5 flex-shrink-0 text-primary" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="m2.305 15.53.923-.382"></path><path d="m3.228 12.852-.924-.383"></path><path d="M4.677 21.5a2 2 0 0 0 1.313.5H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v2.5"></path><path d="m4.852 11.228-.383-.923"></path><path d="m4.852 16.772-.383.924"></path><path d="m7.148 11.228.383-.923"></path><path d="m7.53 17.696-.382-.924"></path><path d="m8.772 12.852.923-.383"></path><path d="m8.772 15.148.923.383"></path><circle cx="6" cy="14" r="3"></circle></svg><span class="flex-1 text-sm truncate">配置管理</span></a></div></div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-3" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item ml-4 group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/mihomo/logs" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-code h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M10 12.5 8 15l2 2.5"></path><path d="m14 12.5 2 2.5-2 2.5"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path></svg><span class="flex-1 text-sm truncate">日志查看</span></a></div></div></div><div id="DndDescribedBy-3" style="display: none;">
+    To pick up a draggable item, press the space bar.
+    While dragging, use the arrow keys to move the item.
+    Press space again to drop the item in its new position, or press escape to cancel.
+  </div><div id="DndLiveRegion-2" role="status" aria-live="assertive" aria-atomic="true" style="position: fixed; top: 0px; left: 0px; width: 1px; height: 1px; margin: -1px; border: 0px; padding: 0px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(100%); white-space: nowrap;"></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/process" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg><span class="flex-1 text-sm truncate">进程管理</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/config" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg><span class="flex-1 text-sm truncate">配置管理</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/logs" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scroll-text h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M15 12h-5"></path><path d="M15 8h-5"></path><path d="M19 17V5a2 2 0 0 0-2-2H4"></path><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"></path></svg><span class="flex-1 text-sm truncate">日志查看</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/users" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg><span class="flex-1 text-sm truncate">用户管理</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/system" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stethoscope h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M11 2v2"></path><path d="M5 2v2"></path><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"></path><path d="M8 15a6 6 0 0 0 12 0v-3"></path><circle cx="20" cy="10" r="2"></circle></svg><span class="flex-1 text-sm truncate">系统诊断</span></a></div></div></div><div><div style="opacity: 1; transition: transform linear;"><div class="group relative"><div role="button" tabindex="0" aria-disabled="false" aria-roledescription="sortable" aria-describedby="DndDescribedBy-2" class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-accent/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grip-vertical h-4 w-4 text-muted-foreground" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></div><a class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-all group/item group-hover:pl-8 text-muted-foreground hover:bg-accent/50 hover:text-foreground" href="/settings" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings h-5 w-5 flex-shrink-0" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg><span class="flex-1 text-sm truncate">系统设置</span></a></div></div></div><div id="DndDescribedBy-2" style="display: none;">
+    To pick up a draggable item, press the space bar.
+    While dragging, use the arrow keys to move the item.
+    Press space again to drop the item in its new position, or press escape to cancel.
+  </div><div id="DndLiveRegion-3" role="status" aria-live="assertive" aria-atomic="true" style="position: fixed; top: 0px; left: 0px; width: 1px; height: 1px; margin: -1px; border: 0px; padding: 0px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(100%); white-space: nowrap;"></div></nav></div><div class="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-primary/30 active:bg-primary/50"></div></aside><main class="pt-14 md:pt-16 pb-20 md:pb-0 transition-all duration-300 min-h-screen" style="padding-left: 224px;"><div class="w-full px-4 md:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 md:py-6"><div class="space-y-6 animate-fade-in pb-6"><div class="rounded-[12px] border bg-card text-card-foreground !border-border/20 !shadow-none transition-shadow duration-300 hover:!shadow-sm overflow-hidden"><div class="p-0"><div class="bg-gradient-to-r from-muted/20 to-transparent border-b px-5 py-4"><div class="flex items-start justify-between gap-4 flex-wrap"><div class="flex-1 min-w-[200px] space-y-3"><div class="flex items-center gap-3"><h3 class="text-lg font-semibold text-foreground">服务控制</h3><div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-600 dark:bg-green-500 text-white">运行中</div></div><div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"><div class="whitespace-nowrap "><span class="text-muted-foreground">版本：</span><span class="font-medium text-foreground ">pid 2799503, uptime 2:26:47</span></div><div class="whitespace-nowrap "><span class="text-muted-foreground">CPU / 内存：</span><span class="font-medium text-foreground ">0.0% / 70.1 MB</span></div><div class="whitespace-nowrap "><span class="text-muted-foreground">运行时间：</span><span class="font-medium text-foreground ">2 小时 26 分钟</span></div><div class="whitespace-nowrap "><span class="text-muted-foreground">PID：</span><span class="font-medium text-foreground ">2799503</span></div></div></div><div class="flex flex-wrap gap-2"><button class="inline-flex items-center justify-center text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-[8px] px-3 shadow-sm hover:shadow transition-shadow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw h-4 w-4 mr-1.5" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>重启</button><button class="inline-flex items-center justify-center text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 rounded-[8px] px-3 shadow-sm hover:shadow transition-shadow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square h-4 w-4 mr-1.5" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect></svg>停止</button></div></div></div></div></div><div class="space-y-6"><div class=""><div class="rounded-xl border bg-card shadow-sm overflow-hidden"><div class="border-b bg-gradient-to-r from-muted/30 via-muted/10 to-transparent px-6 py-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/20"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text h-5 w-5 text-primary" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg></div><div><h3 class="text-lg font-semibold">配置文件编辑器</h3><p class="text-sm text-muted-foreground">未保存</p></div></div><div class="flex items-center gap-2"><button class="p-2 rounded-lg hover:bg-accent transition-colors" title="复制配置"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy h-4 w-4" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button><button class="p-2 rounded-lg hover:bg-accent transition-colors" title="全屏编辑"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize2 lucide-maximize-2 h-4 w-4" aria-hidden="true"><path d="M15 3h6v6"></path><path d="m21 3-7 7"></path><path d="m3 21 7-7"></path><path d="M9 21H3v-6"></path></svg></button><div class="h-5 w-px bg-border/60"></div><input id="config-upload" class="hidden" accept=".yaml,.yml,.json" type="file"><button class="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-accent transition-colors disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-upload h-4 w-4" aria-hidden="true"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg><span class="text-sm">上传</span></button><button class="flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-accent transition-colors disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download h-4 w-4" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg><span class="text-sm">下载</span></button></div></div></div><div class="relative"><div class="h-[500px] overflow-hidden"><div class="cm-theme h-full"><div class="cm-editor ͼ1 ͼ3 ͼ4 ͼ2e ͼ1o"><div class="cm-announced" aria-live="polite"></div><div tabindex="-1" class="cm-scroller"><div class="cm-gutters cm-gutters-before" aria-hidden="true" style="min-height: 6075.86px; position: sticky;"><div class="cm-gutter cm-lineNumbers"><div class="cm-gutterElement" style="height: 0px; visibility: hidden; pointer-events: none;">999</div><div class="cm-gutterElement cm-activeLineGutter" style="height: 22.3906px; margin-top: 4px;">1</div><div class="cm-gutterElement" style="height: 22.3906px;">2</div><div class="cm-gutterElement" style="height: 22.3906px;">3</div><div class="cm-gutterElement" style="height: 22.3906px;">4</div><div class="cm-gutterElement" style="height: 22.3906px;">5</div><div class="cm-gutterElement" style="height: 22.3906px;">6</div><div class="cm-gutterElement" style="height: 22.3906px;">7</div><div class="cm-gutterElement" style="height: 22.3906px;">8</div><div class="cm-gutterElement" style="height: 22.3906px;">9</div><div class="cm-gutterElement" style="height: 22.3906px;">10</div><div class="cm-gutterElement" style="height: 22.3906px;">11</div><div class="cm-gutterElement" style="height: 22.3906px;">12</div><div class="cm-gutterElement" style="height: 22.3906px;">13</div><div class="cm-gutterElement" style="height: 22.3906px;">14</div><div class="cm-gutterElement" style="height: 22.3906px;">15</div><div class="cm-gutterElement" style="height: 22.3906px;">16</div><div class="cm-gutterElement" style="height: 22.3906px;">17</div><div class="cm-gutterElement" style="height: 22.3906px;">18</div><div class="cm-gutterElement" style="height: 22.3906px;">19</div><div class="cm-gutterElement" style="height: 22.3906px;">20</div><div class="cm-gutterElement" style="height: 22.3906px;">21</div><div class="cm-gutterElement" style="height: 22.3906px;">22</div><div class="cm-gutterElement" style="height: 22.3906px;">23</div><div class="cm-gutterElement" style="height: 22.3906px;">24</div><div class="cm-gutterElement" style="height: 22.3906px;">25</div><div class="cm-gutterElement" style="height: 22.3906px;">26</div><div class="cm-gutterElement" style="height: 22.3906px;">27</div><div class="cm-gutterElement" style="height: 22.3906px;">28</div><div class="cm-gutterElement" style="height: 22.3906px;">29</div><div class="cm-gutterElement" style="height: 22.3906px;">30</div><div class="cm-gutterElement" style="height: 22.3906px;">31</div><div class="cm-gutterElement" style="height: 22.3906px;">32</div><div class="cm-gutterElement" style="height: 22.3906px;">33</div><div class="cm-gutterElement" style="height: 22.3906px;">34</div><div class="cm-gutterElement" style="height: 22.3906px;">35</div><div class="cm-gutterElement" style="height: 22.3906px;">36</div><div class="cm-gutterElement" style="height: 22.3906px;">37</div><div class="cm-gutterElement" style="height: 22.3906px;">38</div><div class="cm-gutterElement" style="height: 22.3906px;">39</div><div class="cm-gutterElement" style="height: 22.3906px;">40</div><div class="cm-gutterElement" style="height: 22.3906px;">41</div><div class="cm-gutterElement" style="height: 22.3906px;">42</div><div class="cm-gutterElement" style="height: 22.3906px;">43</div><div class="cm-gutterElement" style="height: 22.3906px;">44</div><div class="cm-gutterElement" style="height: 22.3906px;">45</div></div><div class="cm-gutter cm-foldGutter"><div class="cm-gutterElement" style="height: 0px; visibility: hidden; pointer-events: none;"><span title="Unfold line">›</span></div><div class="cm-gutterElement cm-activeLineGutter" style="height: 22.3906px; margin-top: 4px;"></div></div></div><div spellcheck="false" autocorrect="off" autocapitalize="off" writingsuggestions="false" translate="no" contenteditable="true" style="tab-size: 4;" class="cm-content" role="textbox" aria-multiline="true" data-language="yaml"><div class="cm-activeLine cm-line"><span class="ͼ23"># 锚点 - 筛选组</span></div><div class="cm-line"><span class="ͼ1r">FilterHK</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterHK</span> <span class="ͼ1y">"^(?=.*(?&lt;!深)(港|HK|(?i)Hong))(?!(.*(台|本|坡|美))).*$"</span></div><div class="cm-line"><span class="ͼ1r">FilterSG</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterSG</span> <span class="ͼ1y">'^(?=.*(?i)(坡|🇸🇬|SG|Sing|SIN|XSP)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterJP</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterJP</span> <span class="ͼ1y">'^(?=.*(?i)(日|🇯🇵|JP|Japan|NRT|HND|KIX|CTS|FUK)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterKR</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterKR</span> <span class="ͼ1y">'^(?=.*(?i)(韩|🇰🇷|韓|首尔|南朝鲜|KR|KOR|Korea|South)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterUS</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterUS</span> <span class="ͼ1y">'^(?=.*(?i)(美|🇺🇸|US|USA|JFK|LAX|ORD|ATL|DFW|SFO|MIA|SEA|IAD)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterTW</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterTW</span> <span class="ͼ1y">'^(?=.*(?i)(台|🇼🇸|🇹🇼|TW|tai|TPE|TSA|KHH)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterEU</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterEU</span> <span class="ͼ1y">'^(?=.*(?i)(奥|比|保|克罗地亚|塞|捷|丹|爱沙|芬|法|德|希|匈|爱尔|意|拉|立|卢|马其它|荷|波|葡|罗|斯洛伐|斯洛文|西|瑞|英|🇧🇪|🇨🇿|🇩🇰|🇫🇮|🇫🇷|🇩🇪|🇮🇪|🇮🇹|🇱🇹|🇱🇺|🇳🇱|🇵🇱|🇸🇪|🇬🇧|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU)).*$'</span></div><div class="cm-line"><span class="ͼ1r">FilterOther</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterOther</span> <span class="ͼ1y">'^(?!.*(DIRECT|美|港|坡|台|新|日|韩|奥|比|保|克罗地亚|塞|捷|丹|爱沙|芬|法|德|希|匈|爱尔|意|拉|立|卢|马其它|荷|波|葡|罗|斯洛伐|斯洛文|西|瑞|英|🇭🇰|🇼🇸|🇹🇼|🇸🇬|🇯🇵|🇰🇷|🇺🇸|🇬🇧|🇦🇹|🇧🇪|🇨🇿|🇩🇰|🇫🇮|🇫🇷|🇩🇪|🇮🇪|🇮🇹|🇱🇹|🇱🇺|🇳🇱|🇵🇱|🇸🇪|HK|TW|SG|JP|KR|US|GB|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU|HKG|TPE|TSA|KHH|SIN|XSP|NRT|HND|KIX|CTS|FUK|JFK|LAX|ORD|ATL|DFW|SFO|MIA|SEA|IAD|LHR|LGW))'</span></div><div class="cm-line"><span class="ͼ1r">FilterVIP</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterVIP</span> <span class="ͼ1y">'(专线|专用|高级|直连|急速|高倍率|IEPL|IPLC|AIA|CTM|CC|iepl|iplc|aia|ctm|cc|AC|x3|X3|x5|X5)'</span></div><div class="cm-line"><span class="ͼ1r">FilterBIG</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterBIG</span> <span class="ͼ1y">'(0.[1-5]|低倍率|省流|大流量)'</span></div><div class="cm-line"><span class="ͼ1r">FilterGame</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterGame</span> <span class="ͼ1y">"^(?=.*((?i)游戏|\U0001F3AE|(\b(GAME)\b)))(?!.*((?i)回国|校园)).*$"</span></div><div class="cm-line"><span class="ͼ1r">FilterAll</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;FilterAll</span> <span class="ͼ1y">'^(?!.*(DIRECT|群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|流量|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|贩卖|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|教程|关注|更新|作者|加入|过滤|USE|USED|TOTAL|EXPIRE|EMAIL|Panel|Channel|Author))'</span></div><div class="cm-line"><span class="ͼ23"># 锚点 - 规则集</span></div><div class="cm-line"><span class="ͼ1r">DomainMrs</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;DomainMrs</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> domain<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> mrs<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">DomainText</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;DomainText</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> domain<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> text<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">domainYaml</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;domainYaml</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> domain<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> yaml<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">IPcidrMrs</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;IPcidrMrs</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> ipcidr<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> mrs<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">IPcidrText</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;IPcidrText</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> ipcidr<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> text<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">ClassicalText</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;ClassicalText</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> classical<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> text<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ1r">ClassicalYaml</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;ClassicalYaml</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> http<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 86400<span class="ͼ1w">,</span> <span class="ͼ1r">behavior</span><span class="ͼ1w">:</span> classical<span class="ͼ1w">,</span> <span class="ͼ1r">format</span><span class="ͼ1w">:</span> yaml<span class="ͼ1w">}</span></div><div class="cm-line"><span class="ͼ23"># 锚点 - 时延优选参数 [每 30 秒一次惰性健康检查，容差 20ms，时延超过 2 秒判定为失败，失败 3 次则自动触发健康检查]</span></div><div class="cm-line"><span class="ͼ1r">UrlTest</span><span class="ͼ1w">:</span> <span class="ͼ1r">&amp;UrlTest</span> <span class="ͼ1w">{</span><span class="ͼ1r">type</span><span class="ͼ1w">:</span> url-test<span class="ͼ1w">,</span> <span class="ͼ1r">interval</span><span class="ͼ1w">:</span> 30<span class="ͼ1w">,</span> <span class="ͼ1r">tolerance</span><span class="ͼ1w">:</span> 20<span class="ͼ1w">,</span> <span class="ͼ1r">lazy</span><span class="ͼ1w">:</span> true<span class="ͼ1w">,</span> <span class="ͼ1r">url</span><span class="ͼ1w">:</span> <span class="ͼ1y">'http://detectportal.firefox.com/success.txt'</span><span class="ͼ1w">,</span> <span class="ͼ1r">disable-udp</span><span class="ͼ1w">:</span> false<span class="ͼ1w">,</span> <span class="ͼ1r">timeout</span><span class="ͼ1w">:</span> 2000<span class="ͼ1w">,</span> <span class="ͼ1r">max-failed-times</span><span class="ͼ1w">:</span> 3<span class="ͼ1w">,</span> <span class="ͼ1r">hidden</span><span class="ͼ1w">:</span> true<span class="ͼ1w">,</span> <span class="ͼ1r">include-all</span><span class="ͼ1w">:</span> true<span class="ͼ1w">,</span> <span class="ͼ1r">include-all-proxies</span><span class="ͼ1w">:</span> true<span class="ͼ1w">,</span> <span class="ͼ1r">include-all-providers</span><span class="ͼ1w">:</span> true<span class="ͼ1w">}</span></div><div class="cm-line"><br></div><div class="cm-line"><span class="ͼ23">## ----全局配置------</span></div><div class="cm-line"><br></div><div class="cm-line"><span class="ͼ23"># 运行模式</span></div><div class="cm-line"><span class="ͼ1r">mode</span><span class="ͼ1w">:</span> rule</div><div class="cm-line"><span class="ͼ23"># 日志级别</span></div><div class="cm-line"><span class="ͼ1r">log-level</span><span class="ͼ1w">:</span> info</div><div class="cm-line"><span class="ͼ23"># 统一延迟</span></div><div class="cm-line"><span class="ͼ1r">unified-delay</span><span class="ͼ1w">:</span> true</div><div class="cm-line"><span class="ͼ23"># TCP 并发</span></div><div class="cm-line"><span class="ͼ1r">tcp-concurrent</span><span class="ͼ1w">:</span> true</div><div class="cm-line"><span class="ͼ23"># 网口指定，不要删除，脚本会自动修改</span></div><div class="cm-line"><span class="ͼ1r">interface-name</span><span class="ͼ1w">:</span> enp1s0</div><div class="cm-line"><span class="ͼ23"># v6设置</span></div><div class="cm-line"><span class="ͼ1r">ipv6</span><span class="ͼ1w">:</span> false</div><div class="cm-line"><span class="ͼ23"># udp设置</span></div><div class="cm-line"><span class="ͼ1r">udp</span><span class="ͼ1w">:</span> true</div><div class="cm-line"><span class="ͼ23"># 端口相关设置</span></div><div class="cm-line"><span class="ͼ23"># HTTP 代理端口 用于传统的 HTTP 代理</span></div><div class="cm-line"><span class="ͼ1r">port</span><span class="ͼ1w">:</span> 7890</div><div class="cm-line"><span class="ͼ23"># SOCKS5 代理端口</span></div><div class="cm-line"><span class="ͼ1r">socks-port</span><span class="ͼ1w">:</span> 7891</div><div class="cm-gap" style="height: 5060.28px;"></div></div><div class="cm-layer cm-layer-above cm-cursorLayer" aria-hidden="true" style="z-index: 150; animation-duration: 1200ms;"><div class="cm-cursor cm-cursor-primary" style="left: 54.5469px; top: 5px; height: 19px;"></div></div><div class="cm-layer cm-selectionLayer" aria-hidden="true" style="z-index: -2;"></div></div></div></div></div></div><div class="border-t bg-muted/30 px-6 py-4"><div class="flex items-center justify-between"><div class="flex items-center gap-2 text-sm text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text h-4 w-4" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg><span>支持 YAML 和 JSON 格式 · 快捷键 Ctrl+S / Cmd+S 保存</span></div><div class="flex gap-2"><button class="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-accent transition-colors disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-check-big h-4 w-4" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335"></path><path d="m9 11 3 3L22 4"></path></svg><span>验证配置</span></button><button disabled="" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all disabled:opacity-50 "><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save h-4 w-4" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path><path d="M7 3v4a1 1 0 0 0 1 1h7"></path></svg><span>保存配置</span></button></div></div></div></div></div><div class="grid gap-6 md:grid-cols-2"><div class="rounded-[12px] border bg-card text-card-foreground !border-border/20 !shadow-none transition-shadow duration-300 hover:!shadow-sm overflow-hidden"><div class="flex flex-col space-y-1.5 p-6 bg-gradient-to-r from-muted/20 to-transparent border-b"><div class="flex items-center justify-between"><h3 class="text-2xl font-semibold leading-none tracking-tight text-foreground flex items-center gap-2"><div class="p-1.5 rounded-lg bg-primary/10 ring-1 ring-primary/20"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package h-4 w-4 text-primary" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><path d="m7.5 4.27 9 5.15"></path></svg></div>内核版本</h3></div></div><div class="p-6 pt-4"><div class="space-y-2"><div class="flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"><div class="flex items-center gap-3 min-w-0"><div class="flex flex-col min-w-0"><div class="flex items-center gap-2"><span class="font-semibold text-foreground">mihomo-20260302</span></div><span class="text-xs text-muted-foreground font-mono truncate">-</span></div></div><div class="flex gap-2 flex-shrink-0"></div></div></div></div></div><div class="rounded-[12px] border bg-card text-card-foreground !border-border/20 !shadow-none transition-shadow duration-300 hover:!shadow-sm overflow-hidden"><div class="flex flex-col space-y-1.5 p-6 bg-gradient-to-r from-muted/20 to-transparent border-b"><h3 class="text-2xl font-semibold leading-none tracking-tight text-foreground flex items-center gap-2"><div class="p-1.5 rounded-lg bg-primary/10 ring-1 ring-primary/20"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings h-4 w-4 text-primary" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg></div>配置文件</h3></div><div class="p-6 pt-4"><div class="space-y-2"><div class="flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"><div class="flex items-center gap-3 min-w-0"><div class="flex flex-col min-w-0"><div class="flex items-center gap-2"><span class="font-semibold text-foreground">config.yaml</span></div><div class="flex items-center gap-2 text-xs text-muted-foreground"><span class="font-mono truncate">-</span></div></div></div><div class="flex gap-2 flex-shrink-0"></div></div><div class="flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"><div class="flex items-center gap-3 min-w-0"><div class="flex flex-col min-w-0"><div class="flex items-center gap-2"><span class="font-semibold text-foreground">phone_config.yaml</span></div><div class="flex items-center gap-2 text-xs text-muted-foreground"><span class="font-mono truncate">-</span></div></div></div><div class="flex gap-2 flex-shrink-0"></div></div></div></div></div></div></div></div></div></main><nav class="fixed bottom-0 left-0 right-0 z-50 md:hidden"><div class="mx-2 mb-2 rounded-[20px] glass-effect-strong shadow-apple-lg border border-border/30 overflow-hidden"><div class="flex overflow-x-auto scrollbar-hide px-2 py-2 gap-1"><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-server h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg><div class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary"></div></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-box h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-primary shadow-md shadow-primary/30"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network h-5 w-5 transition-all duration-200 text-primary-foreground stroke-[2.5]" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg><div class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary"></div></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scroll-text h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M15 12h-5"></path><path d="M15 8h-5"></path><path d="M19 17V5a2 2 0 0 0-2-2H4"></path><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"></path></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stethoscope h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M11 2v2"></path><path d="M5 2v2"></path><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"></path><path d="M8 15a6 6 0 0 0 12 0v-3"></path><circle cx="20" cy="10" r="2"></circle></svg></button><button class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 active:scale-90 bg-transparent hover:bg-muted/50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings h-5 w-5 transition-all duration-200 text-muted-foreground" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></div></nav></div><div class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md"></div><div class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md"></div></div>
+
+    
+  
+
+</body></html>

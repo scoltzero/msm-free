@@ -1,0 +1,123 @@
+#!/bin/sh
+
+CFG="/boot/config/plugins/msm-free/msm-free.cfg"
+APP="/usr/local/emhttp/plugins/msm-free/bin/msm-free"
+
+ENABLED="yes"
+HOST="0.0.0.0"
+PORT="7777"
+DATA_DIR="/mnt/user/appdata/msm-free"
+
+if [ -f "$CFG" ]; then
+  . "$CFG"
+fi
+
+: "${ENABLED:=yes}"
+: "${HOST:=0.0.0.0}"
+: "${PORT:=7777}"
+: "${DATA_DIR:=/mnt/user/appdata/msm-free}"
+
+PID_FILE="${DATA_DIR}/msm-free.pid"
+LOG_FILE="${DATA_DIR}/logs/msm-free.unraid.log"
+
+array_ready() {
+  case "$DATA_DIR" in
+    /mnt/user/*)
+      [ -d /mnt/user ] || return 1
+      if command -v mountpoint >/dev/null 2>&1; then
+        mountpoint -q /mnt/user || return 1
+      fi
+      ;;
+    /mnt/cache/*)
+      [ -d /mnt/cache ] || return 1
+      ;;
+  esac
+  return 0
+}
+
+pid_value() {
+  [ -f "$PID_FILE" ] || return 1
+  sed -n '1s/[^0-9].*$//p' "$PID_FILE" 2>/dev/null
+}
+
+is_running() {
+  pid="$(pid_value)"
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
+start_service() {
+  if [ "$ENABLED" != "yes" ]; then
+    echo "msm-free is disabled"
+    return 0
+  fi
+  if [ ! -x "$APP" ]; then
+    echo "missing executable: $APP"
+    return 1
+  fi
+  if ! array_ready; then
+    echo "data directory is not available yet: $DATA_DIR"
+    return 0
+  fi
+  if is_running; then
+    echo "msm-free already running pid=$(pid_value)"
+    return 0
+  fi
+
+  mkdir -p "$DATA_DIR/logs"
+  "$APP" init --config "$DATA_DIR" >> "$LOG_FILE" 2>&1 || return 1
+  nohup "$APP" serve --config "$DATA_DIR" --host "$HOST" --port "$PORT" >> "$LOG_FILE" 2>&1 &
+  sleep 2
+
+  if is_running; then
+    echo "msm-free started pid=$(pid_value)"
+    return 0
+  fi
+  echo "msm-free failed to start; see $LOG_FILE"
+  return 1
+}
+
+stop_service() {
+  if is_running; then
+    "$APP" stop --config "$DATA_DIR" >/dev/null 2>&1 || true
+    sleep 2
+  fi
+  if is_running; then
+    kill "$(pid_value)" 2>/dev/null || true
+    sleep 1
+  fi
+  if is_running; then
+    kill -9 "$(pid_value)" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+  echo "msm-free stopped"
+}
+
+status_service() {
+  if is_running; then
+    echo "running pid=$(pid_value) host=${HOST} port=${PORT} data=${DATA_DIR}"
+    return 0
+  fi
+  echo "stopped host=${HOST} port=${PORT} data=${DATA_DIR}"
+  return 3
+}
+
+case "$1" in
+  start)
+    start_service
+    ;;
+  stop)
+    stop_service
+    ;;
+  restart)
+    stop_service
+    start_service
+    ;;
+  status)
+    status_service
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 2
+    ;;
+esac

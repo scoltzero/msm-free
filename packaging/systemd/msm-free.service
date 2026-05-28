@@ -1,0 +1,19 @@
+[Unit]
+Description=msm-free service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/msm-free
+Environment=MSM_FREE_DATA_DIR=/opt/msm-free
+ExecStart=/usr/local/bin/msm-free serve --config /opt/msm-free --host 0.0.0.0 --port 7777
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=30
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+

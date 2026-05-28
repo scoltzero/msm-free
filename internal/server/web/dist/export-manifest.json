@@ -1,0 +1,770 @@
+{
+  "baseUrl": "http://192.168.10.3:7777",
+  "exportedAt": "2026-05-28T04:28:09.060Z",
+  "user": {
+    "username": "root",
+    "role": "admin"
+  },
+  "notes": [
+    "pages/*.html are rendered static DOM snapshots with script tags removed.",
+    "index.raw.html is the original SPA entry HTML returned by the server.",
+    "assets/ and logo/ contain mirrored static frontend resources discovered from the entry and chunks."
+  ],
+  "captured": [
+    {
+      "route": "/login",
+      "name": "00_login",
+      "targetUrl": "http://192.168.10.3:7777/login",
+      "public": true,
+      "finalUrl": "http://192.168.10.3:7777/login",
+      "title": "MSM 管理平台",
+      "textSample": "MSM 管理平台\n\n统一管理您的网络服务，提供 DNS 分流、代理管理等功能\n\nDNS 服务\n代理管理\n网络优化\n\nMSM 0.7.7\n\n欢迎使用 MSM\n\n用户名\n密码\n登录\n\n请使用初始化时创建的账号登录\n\n忘记密码?",
+      "file": "pages/00_login.html",
+      "ok": true
+    },
+    {
+      "route": "/",
+      "name": "01_dashboard",
+      "targetUrl": "http://192.168.10.3:7777/",
+      "finalUrl": "http://192.168.10.3:7777/",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n仪表盘\n\n系统概览 · 实时监控\n\n设备信息\n硬件信息\n实时速率\n连接数\n0\n下载\n0.0 KB/s\n上传\n0.0 KB/s\n102K\n51K\n0\n连接数\n上传速度\n下载速度\n全部\n1/2\n1/4\n1/5\n1/10\n统计信息\n资源使用趋势\nCPU\n0.0%\n内存\n0.0%\n20%\n10%\n0%\nCPU\n内存\n全部\n1/2\n1/4\n1/5\n1/10\n20%\nMosDNS\nSing-Box\nMihomo",
+      "file": "pages/01_dashboard.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns",
+      "name": "02_mosdns",
+      "targetUrl": "http://192.168.10.3:7777/mosdns",
+      "finalUrl": "http://192.168.10.3:7777/mosdns",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\nMosDNS 管理\n\nDNS 服务管理与配置\nv5-ph-srs-20260223-35ed61d\n\n运行中\n服务控制\n运行中\n版本：v5-ph-srs-20260223-35ed61d\nCPU / 内存：0.0% / 78.9 MB\n运行时间：2 小时 26 分钟\nPID：2799504\n重启\n停止\n运行统计\n\nCPU 使用率\n\n0.0%\n\n内存使用率\n\n78.92 MB\n\n功能模块\n\n选择一个模块开始管理\n\n概述\n\n查看 MosDNS 服务的关键指标和详细统计\n\n规则管理\n\n管理 DNS 分流规则和黑白名单\n\n客户端设置\n\n管理客户端代理权限，支持白名单和黑名单\n\nDNS 日志\n\n查询和分析 DNS 请求日志\n\n系统功能\n\n系统功能和高级设置\n\n配置管理\n\n管理配置文件和版本\n\n实时日志\n\n查看实时运行日志和历史记录",
+      "file": "pages/02_mosdns.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/overview",
+      "name": "03_mosdns_overview",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/overview",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/overview",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\nMosDNS 概述\n运行中\n查询趋势\n分流统计\n域名排行\n最慢查询\n客户端排行\n上游 DNS 统计\n缓存统计",
+      "file": "pages/03_mosdns_overview.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/service-config",
+      "name": "04_mosdns_service_config",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/service-config",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/service-config",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n配置管理\n\n管理 MosDNS 配置文件和版本\n\n服务控制\n运行中\n版本：v5-ph-srs-20260223-35ed61d\nCPU / 内存：0.0% / 77.4 MB\n运行时间：2 小时 26 分钟\nPID：2799504\n重启\n停止\n配置文件管理\n收起\n下载\n上传\n文件列表\nadguard\ncache\ngen\ngenblank\nrule\nsrs\nsub_config\nunpack\nwebinfo\n.msm-mosdns-template-manifest.json\n.msm-mosdns-template-version\naudit_settings.json\nclient_ip.txt\nconfig_overrides.json\nconfig.yaml\nupstream_overrides.json\nconfig.yaml\n\nconfig.yaml\n\n验证\n保存\n1\n2",
+      "file": "pages/04_mosdns_service_config.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/logs",
+      "name": "05_mosdns_logs",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/logs",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/logs",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMOSDNS\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 54467\nERROR: 1817\nWARN: 50527\n2026-04-10 17:42:51.459\nWARN\ndomestic aliapi/aliapi.go:702 AliAPI returned non-200 status code {\"status_code\": 401, \"body\": \"{\\\"code\\\":\\\"Uid is not existed\\\"}\"}\n2026-04-10 17:42:57.856\nWARN\ndomestic aliapi/aliapi.go:702 AliAPI returned non-200 status code {\"status_code\": 401, \"body\": \"{\\\"code\\\":\\\"Uid is not existed\\\"}\"}\n2",
+      "file": "pages/05_mosdns_logs.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/rules",
+      "name": "06_mosdns_rules",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/rules",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/rules?tab=personlist",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n规则管理\n\nMosDNS 域名和 IP 规则\n\n个性化名单\n广告拦截\n在线分流\n直连\n101\n拦截\n43\n代理\n70\nDDNS域名\n4\n直连IP\n1\n重定向\n2\n添加\n导出规则\n导入规则\n刷新\n清空\n直连\n101 条\n拖拽排序\n序号\n类型\n匹配模式\n规则内容\n操作\n001\nwhitelist\nfull\nlocalhost.pan.baidu.com\n002\nwhitelist\ndomain\nalibabachengdun.com\n003\nwhitelist\ndomain\nwocloud.cn\n004\nwhitelist\ndomain\nwo.cn\n005\nwhitelist\ndomain\n10086.cn\n006\nwhitelist\nfull\nwww.dingtalkcs.com\n007\nwhitelist\ndomain\nvegslb.com\n008\nwhitelist\ndomain",
+      "file": "pages/06_mosdns_rules.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/clients",
+      "name": "07_mosdns_clients",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/clients",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/clients",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n客户端设置\n未扫描\n关闭\n白名单\n黑名单\n\n拖拽客户端到右侧名单区域，或点击\"添加\"按钮\n\n新增客户端\n多选\n重新扫描\n清空并扫描\n\n客户端列表(8 / 8)\n\nIP 正序\n\n192.168.10.5\n\nmanual\n192.168.10.5\n•\n•\n83 天前\n\n192.168.10.129\n\nmanual\n192.168.10.129\n•\n•\n36 天前\n\n192.168.10.141\n\nmanual\n192.168.10.141\n•\n•\n87 天前\n\n192.168.10.169\n\nmanual\n192.168.10.169\n•\n•\n24 天前\n\n192.168.10.199\n\nmanual\n192.168.10.199\n•\n•\n87 天前\n\n192.168.10.202\n\nmanual\n192.168.10.202\n•\n•\n76 天前\n\n192.168.10.223\n\nma",
+      "file": "pages/07_mosdns_clients.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/query-log",
+      "name": "08_mosdns_query_log",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/query-log",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/query-log",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n查询日志\n暂停刷新\n模糊搜索\n时间 \n\t\n域名\n\t\n客户端\n\t\n类型\n\t\n分流规则\n\t\n响应状态\n\t\n耗时 (ms)\n\n\n2026/05/28 12:27:34\n\t\nmetrics.icloud.com\n\t\n192.168.10.183\n\t\nAAAA\n\t\nwhitelist\n\t\nNOERROR\nAAAA: 2403:300:1364:0:b::1... (2 条记录)\n\t\n0.02\n\n\n2026/05/28 12:27:34\n\t\nmetrics.icloud.com\n\t\n192.168.10.183\n\t\nA\n\t\nwhitelist\n\t\nNOERROR\nA: 17.248.223.17... (2 条记录)\n\t\n0.09\n\n\n2026/05/28 12:27:34\n\t\nmetrics.icloud.com\n\t\n192.168.10.183\n\t\nHTTPS\n\t\nBANHTTPS\n\t\nN",
+      "file": "pages/08_mosdns_query_log.html",
+      "ok": true
+    },
+    {
+      "route": "/mosdns/system",
+      "name": "09_mosdns_system",
+      "targetUrl": "http://192.168.10.3:7777/mosdns/system",
+      "finalUrl": "http://192.168.10.3:7777/mosdns/system",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n概述\n规则管理\n客户端设置\nDNS 日志\n系统功能\n配置管理\n实时日志\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n系统控制\n\n上游配置、过滤策略与缓存管理\n\n保存并重启\n🌐\n全局设置\nSOCKS5\nECS IP\n📊\n日志容量\n当前容量\n设置\n\n💡 设置新容量将清空日志（最高40万）\n\n上游 DNS 设置\n直接编辑 upstream_overrides.json\n国内\n(国内直连上游)\n已启用 6/7\n添加\n启用\n名称\n协议\n地址\n阿里私享DOH\n账号: 234324234\nALIAPI\n223.5.5.5\n编辑\n删除\n阿里UDP\nUDP\n223.5.5.5\n编辑\n删除\n阿里TCP\nTCP\ntcp://223.5.5.5\n编辑\n删除\n阿里DOH\n拨号: 223.5.5.5\nHTTPS\nhttps://dns.alidns.com/dns-query\n编辑\n删除\n阿里DOT\nTLS\ntls://223.5.5.5\n编辑\n删除\n运营商\nUDP\n114.114.114.114\n编辑\n删除\n腾讯\n",
+      "file": "pages/09_mosdns_system.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy",
+      "name": "10_proxy",
+      "targetUrl": "http://192.168.10.3:7777/proxy",
+      "finalUrl": "http://192.168.10.3:7777/proxy",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\nMihomo\n运行中\npid 2799503, uptime 2:26:12\nSing-Box\n开发中\n已停止\nsingbox - STOPPED\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:12\nCPU / 内存：0.0% / 69.6 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止",
+      "file": "pages/10_proxy.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/overview",
+      "name": "11_mihomo_overview",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/overview",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/overview",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\nMihomo 概览\nv1.19.20\nrunning\n实时流量\n连接数\n0\n下载\n0 B/s\n上传\n0 B/s\n100K\n50K\n0\n连接数\n上传速度\n下载速度\n全部\n1/2\n1/4\n1/5\n1/10\n运行统计\n活跃连接\n0\n下载\n0 B\n上传\n0 B\nCPU 使用率\n0.0%\n内存使用率\n0 B\n网络信息\n内网 IP\n192.168.10.3\n国内出口\n中国 江苏 常州 电信\n***.***.***.***\n国际出口\nChina China Telecom\n***.***.***.***\n运行配置\n\n核心参数与网络设置\n\nRule\nInfo\n代理端口\nLinux/Mac\nPowerShell\nHTTP\n7890\nSOCKS\n7891\nMixed\n7892\nRedir\n7877\nTProxy\n7896\n网络配置\n已启用已启用\n绑定地址\n*\n绑定地址\nenp1s0\nIPv6\n✗\n路由标记\n1\n进程查",
+      "file": "pages/11_mihomo_overview.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/proxies",
+      "name": "12_mihomo_proxies",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/proxies",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/proxies",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理\n代理组 16\n•\n连接 29\n•\n↑ 0 B/s\n•\n↓ 0 B/s\n•\n上传 5.76 MB\n•\n下载 35.82 MB\n•\n模式 规则\n•\n供应商 18\n自动刷新：开\n策略组 (16)\n供应商 (2)\n直连\n规则\n全局\n默认排序\ndefault\n按配置排序\n按名称升序\n按名称降序\n全部\nSelector\n节点选择\n: Selector (15/11)\n140ms\n美国节点\n漏网之鱼\n: Selector (4/12)\n140ms\n美国节点\n人工智能\n: Selector (6/11)\n140ms\n美国节点\nNetflix\n: Selector (0/11)\n36ms\n香港节点\n微软服务\n: Selector (0/2)\n全球直连\nSpotify\n: Selector (0/11)\n140ms\n节点选择\nTelegram\n: Selector (3/7)\n140ms\n美国节点\n全球直连\n:",
+      "file": "pages/12_mihomo_proxies.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/rules",
+      "name": "13_mihomo_rules",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/rules",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/rules",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n规则\n总计\n60\n共\n•\n条\n25\n规则 (60)\n供应商 (25)\n#1\nDST-PORT\n123\nDIRECT\nDIRECT\n#2\nDOMAIN-SUFFIX\nsssaicode.com\nDIRECT\nDIRECT\n#3\nDOMAIN-KEYWORD\ndocker\n香港节点\n🇭🇰 HKG 02\n36\n#4\nDOMAIN-SUFFIX\neastmoney.com\nDIRECT\nDIRECT\n#5\nDOMAIN-SUFFIX\nsina.com.cn\nDIRECT\nDIRECT\n#6\nDOMAIN-SUFFIX\nsinajs.cn\nDIRECT\nDIRECT\n#7\nDOMAIN\ncdn.12api.org\nDIRECT\nDIRECT\n#8\nDOMAIN\ncdn.atk.pro\nDIRECT\nDIRECT\n#9\nDOMAIN-SUFFIX\nbrave.com\n美国节点\nUSxDMITan4pro-",
+      "file": "pages/13_mihomo_rules.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/connections",
+      "name": "14_mihomo_connections",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/connections",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/connections",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n连接\n31\n活跃\n•\n0\n已关闭\n已关闭\n36.0 MB\n下载总量\n5.77 MB\n下载速度\n0 B/s\n上传速度\n0 B/s\n关闭所有活跃连接\n活跃 (31)\n已关闭 (0)\nall\nTCP\nUDP\nall\n192.168.10.3\n\thost\t主机\tleft\thost\t下载速度\ttype\t类型\tleft\t连接时间\n↓\n\n\n\t\nraw.githubusercontent.com\nTCP\n192.168.10.223:49232 → 185.199.109.133:443\n\tRedir | tcp\tRuleSet: GitHub\t\n节点选择 › 美国节点 › USxDMITan4pro-vless_reality_vision\n\t0 B/s\t0 B/s\t4.40 KB\t1.73 KB\t\n刚刚\n0s\n\n\n\t\nraw.githubusercontent.com\nTCP\n192.168.10.223:4",
+      "file": "pages/14_mihomo_connections.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/logs",
+      "name": "15_mihomo_logs",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/logs",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/logs",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 58\nERROR: 18\n2026-05-28 12:21:01.997\nINFO\n[TCP] 192.168.10.223:65332 --> www.google.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.998\nINFO\n[TCP] 192.168.10.223:65330 --> safebrowsingohttpgateway.googleapis.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.999\nINF",
+      "file": "pages/15_mihomo_logs.html",
+      "ok": true
+    },
+    {
+      "route": "/mihomo/config",
+      "name": "16_mihomo_config",
+      "targetUrl": "http://192.168.10.3:7777/mihomo/config",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/config",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:19\nCPU / 内存：0.0% / 69.6 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止\n配置文件编辑器\n\n未保存\n\n上传\n下载\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n# 锚点 - 筛选组\nFilterHK: &FilterHK \"^(?=.*(?<!深)(港|HK|(?i)Hong))(?!(.*(台|本|坡|美))).*$\"\nFilterSG: &FilterSG '^(?=.*(?i)(坡|🇸🇬|SG|Sing|SIN|XSP)).*$'\nFilterJP: &Filter",
+      "file": "pages/16_mihomo_config.html",
+      "ok": true
+    },
+    {
+      "route": "/singbox/overview",
+      "name": "17_singbox_overview",
+      "targetUrl": "http://192.168.10.3:7777/singbox/overview",
+      "finalUrl": "http://192.168.10.3:7777/singbox/overview",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n概览\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\n服务控制\n已停止\n版本：singbox - STOPPED\n启动服务\n概览\n当前激活核心\nSing-Box\n版本：singbox - STOPPED\n状态\n已停止\nCPU\n0.0%\n内存\n-\nPID\n-\n运行时间\n-\n配置路径\n-\n另一个核心Mihomo · running\n使用提示\n\n在左侧“配置/日志”中管理当前激活核心。\n\n如需查看核心内部详情，请进入对应的 Mihomo / Sing-Box 专属菜单。",
+      "file": "pages/17_singbox_overview.html",
+      "ok": true
+    },
+    {
+      "route": "/singbox/config",
+      "name": "18_singbox_config",
+      "targetUrl": "http://192.168.10.3:7777/singbox/config",
+      "finalUrl": "http://192.168.10.3:7777/singbox/config",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n概览\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\n服务控制\n已停止\n版本：singbox - STOPPED\n启动服务\n配置文件编辑器\n\n未保存\n\n上传\n下载\n1\n# 选择代理服务: singbox\n支持 YAML 和 JSON 格式 · 快捷键 Ctrl+S / Cmd+S 保存\n验证配置\n保存配置\n内核版本\n\n暂无已安装版本\n\n配置文件\n\n暂无配置文件",
+      "file": "pages/18_singbox_config.html",
+      "ok": true
+    },
+    {
+      "route": "/singbox/logs",
+      "name": "19_singbox_logs",
+      "targetUrl": "http://192.168.10.3:7777/singbox/logs",
+      "finalUrl": "http://192.168.10.3:7777/singbox/logs",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n概览\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\n服务控制\n已停止\n版本：singbox - STOPPED\n启动服务\n全部级别\nERROR\nWARN\nINFO\nDEBUG\n\n暂无日志",
+      "file": "pages/19_singbox_logs.html",
+      "ok": true
+    },
+    {
+      "route": "/process",
+      "name": "20_process",
+      "targetUrl": "http://192.168.10.3:7777/process",
+      "finalUrl": "http://192.168.10.3:7777/process",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n进程管理\n\n管理所有服务进程的启动、停止和监控\n\n刷新\n\n总进程数\n\n2\n\n运行中\n\n2\n\n已停止\n\n0\n\nmihomo\n\nmihomo\n\n运行中\n\n进程 ID\n\n2799503\n\n运行时长\n\n2小时 26分钟\n\n停止\n重启\n查看日志\nmosdns\n\nmosdns\n\n运行中\n\n进程 ID\n\n2799504\n\n运行时长\n\n2小时 26分钟\n\n停止\n重启\n查看日志",
+      "file": "pages/20_process.html",
+      "ok": true
+    },
+    {
+      "route": "/config",
+      "name": "21_config",
+      "targetUrl": "http://192.168.10.3:7777/config",
+      "finalUrl": "http://192.168.10.3:7777/config",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n配置管理\n\n在线编辑服务配置文件\n\n配置文件管理\n收起\n下载\n验证\n保存\n配置文件\nlogs\nmihomo\nmosdns\nnetwork\nsingbox\n\n从左侧文件树选择文件开始编辑\n\n从左侧文件树选择文件开始编辑",
+      "file": "pages/21_config.html",
+      "ok": true
+    },
+    {
+      "route": "/logs",
+      "name": "22_logs",
+      "targetUrl": "http://192.168.10.3:7777/logs",
+      "finalUrl": "http://192.168.10.3:7777/logs",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMSM\nMOSDNS\nSINGBOX\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 89736\nERROR: 204\nWARN: 10\n2026-05-28 12:27:23\nINFO\n[app/app.go:945] gin: [GIN] 2026/05/28 - 12:27:23 | 200 | 9.317µs | 192.168.10.223 | GET \"/assets/Tabs-D_HCB168.js\"\n2026-05-28 12:27:23\nINFO\n[app/app.go:945] gin: [GIN] 2026/05/28 - 12:27:23 | 200 | 20.735µs | 192.168.10.223 | GET \"/assets/LogsPage-BEZLBejt.js\"\n2026-05-28 12:27:23\nINFO\n[app/app.go:945] gin: [GIN] 20",
+      "file": "pages/22_logs.html",
+      "ok": true
+    },
+    {
+      "route": "/logs/mosdns",
+      "name": "23_logs_mosdns",
+      "targetUrl": "http://192.168.10.3:7777/logs/mosdns",
+      "finalUrl": "http://192.168.10.3:7777/logs/mosdns",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMSM\nMOSDNS\nSINGBOX\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 54467\nERROR: 1817\nWARN: 50527\n2026-04-10 17:42:51.459\nWARN\ndomestic aliapi/aliapi.go:702 AliAPI returned non-200 status code {\"status_code\": 401, \"body\": \"{\\\"code\\\":\\\"Uid is not existed\\\"}\"}\n2026-04-10 17:42:57.856\nWARN\ndomestic aliapi/aliapi.go:702 AliAPI returned non-200 status code {\"status_code\": 401, \"body\": \"{\\\"code\\\":\\\"Uid is not existed\\\"}\"}\n2026-04-10 17:43",
+      "file": "pages/23_logs_mosdns.html",
+      "ok": true
+    },
+    {
+      "route": "/logs/singbox",
+      "name": "24_logs_singbox",
+      "targetUrl": "http://192.168.10.3:7777/logs/singbox",
+      "finalUrl": "http://192.168.10.3:7777/logs/singbox",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMSM\nMOSDNS\nSINGBOX\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 0\n\n暂无日志",
+      "file": "pages/24_logs_singbox.html",
+      "ok": true
+    },
+    {
+      "route": "/logs/mihomo",
+      "name": "25_logs_mihomo",
+      "targetUrl": "http://192.168.10.3:7777/logs/mihomo",
+      "finalUrl": "http://192.168.10.3:7777/logs/mihomo",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMSM\nMOSDNS\nSINGBOX\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 58\nERROR: 18\n2026-05-28 12:21:01.997\nINFO\n[TCP] 192.168.10.223:65332 --> www.google.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.998\nINFO\n[TCP] 192.168.10.223:65330 --> safebrowsingohttpgateway.googleapis.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.999\nINFO\n[TCP]",
+      "file": "pages/25_logs_mihomo.html",
+      "ok": true
+    },
+    {
+      "route": "/users",
+      "name": "26_users",
+      "targetUrl": "http://192.168.10.3:7777/users",
+      "finalUrl": "http://192.168.10.3:7777/users",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n用户管理\n\n管理系统用户与权限\n\n创建用户\n\n总用户数\n\n1\n\n管理员\n\n1\n\n活跃用户\n\n1\n\n禁用用户\n\n0\n\n用户管理\n搜索\n所有角色\n管理员\n运维人员\n只读用户\n访客\n所有状态\n活跃\n禁用\n共 1 个用户，当前第 1 / 1 页\nR\nroot\n管理员\n已禁用\n@root\n最后登录: {{date}}: 2026/05/28 12:27\n共 1 个用户，当前第 1 / 1 页\n10/页\n20/页\n50/页\n100/页\n上一页\n1 / 1\n下一页\n角色权限说明\n管理员\nadmin\n✓\n完全的系统访问权限\n✓\n管理用户和权限\n✓\n修改系统配置\n✓\n启动/停止服务\n✓\n查看和导出所有日志\n运维人员\noperator\n✓\n管理服务(启动/停止/重启)\n✓\n编辑配置文件\n✓\n查看日志和监控数据\n✗\n配置历史回滚\n✗\n无法管理用户和系统设置\n只读用户\nviewer\n✓\n查看服务状态\n✓\n查看配置文件(只读)\n✗\n查看日志\n✗\n无法修改任何配置\n访客\ngu",
+      "file": "pages/26_users.html",
+      "ok": true
+    },
+    {
+      "route": "/settings",
+      "name": "27_settings",
+      "targetUrl": "http://192.168.10.3:7777/settings",
+      "finalUrl": "http://192.168.10.3:7777/settings",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n系统设置\n\n个人设置与系统配置\n\n个人中心\n系统管理\n外观设置\n系统更新\n重置系统\n个人信息\n用户名\nroot\n角色\nAdmin\n显示名称\n未设置\n邮箱\n未设置\n编辑个人资料\n显示名称\n邮箱\n保存\n修改密码\n当前密码\n新密码\n确认密码\n密码至少 8 位，区分大小写\n修改密码",
+      "file": "pages/27_settings.html",
+      "ok": true
+    },
+    {
+      "route": "/system",
+      "name": "28_system",
+      "targetUrl": "http://192.168.10.3:7777/system",
+      "finalUrl": "http://192.168.10.3:7777/system",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n系统诊断\n系统健康\n重新诊断\n诊断项目\n6\n✓\n通过\n6(100%)\n!\n警告\n0(0%)\n✕\n错误\n0(0%)\n系统信息\n操作系统\nlinux\n架构\namd64\nGo 版本\ngo1.25.5\nCPU 核心数\n4\n进程 PID\n2799414\n是否 root\n是\n诊断项目\n6/6\n通过\n配置目录\n\n配置目录存在且可访问\n\n详情\n通过\n配置文件\n\n配置文件有效\n\n详情\n通过\n依赖项\n\n依赖检查通过 6/6\n\n详情\n通过\n端口占用\n\n已检查 28 个端口\n\n通过\n磁盘空间\n\n磁盘空间充足\n\n详情\n通过\n文件权限\n\n具有必要的读写权限\n\n端口详情\n共 28 个端口\nmsm\n1\nmosdns\n11\n空闲: 1\nmihomo\n6",
+      "file": "pages/28_system.html",
+      "ok": true
+    },
+    {
+      "route": "/setup",
+      "name": "29_setup_redirect",
+      "targetUrl": "http://192.168.10.3:7777/setup",
+      "finalUrl": "http://192.168.10.3:7777/",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nSing-Box\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n仪表盘\n\n系统概览 · 实时监控\n\n设备信息\n硬件信息\n实时速率\n连接数\n0\n下载\n0.0 KB/s\n上传\n0.0 KB/s\n102K\n51K\n0\n连接数\n上传速度\n下载速度\n全部\n1/2\n1/4\n1/5\n1/10\n统计信息\n资源使用趋势\nCPU\n0.0%\n内存\n0.0%\n20%\n10%\n0%\nCPU\n内存\n全部\n1/2\n1/4\n1/5\n1/10\n20%\nMosDNS\nSing-Box\nMihomo",
+      "file": "pages/29_setup_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/overview",
+      "name": "30_legacy_proxy_overview_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/overview",
+      "finalUrl": "http://192.168.10.3:7777/proxy",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\nMihomo\n运行中\npid 2799503, uptime 2:26:37\nSing-Box\n开发中\n已停止\nsingbox - STOPPED\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:37\nCPU / 内存：0.0% / 69.6 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止",
+      "file": "pages/30_legacy_proxy_overview_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/config",
+      "name": "31_legacy_proxy_config_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/config",
+      "finalUrl": "http://192.168.10.3:7777/proxy",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\nMihomo\n运行中\npid 2799503, uptime 2:26:38\nSing-Box\n开发中\n已停止\nsingbox - STOPPED\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:38\nCPU / 内存：0.0% / 69.6 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止",
+      "file": "pages/31_legacy_proxy_config_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/logs",
+      "name": "32_legacy_proxy_logs_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/logs",
+      "finalUrl": "http://192.168.10.3:7777/proxy",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理服务管理\n\nSing-Box / Mihomo 二选一管理\n\nMihomo\n运行中\npid 2799503, uptime 2:26:40\nSing-Box\n开发中\n已停止\nsingbox - STOPPED\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:40\nCPU / 内存：0.0% / 69.6 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止",
+      "file": "pages/32_legacy_proxy_logs_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo",
+      "name": "33_legacy_proxy_mihomo_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/overview",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\nMihomo 概览\nv1.19.20\nrunning\n实时流量\n连接数\n29\n下载\n0 B/s\n上传\n0 B/s\n100K\n50K\n0\n连接数\n上传速度\n下载速度\n全部\n1/2\n1/4\n1/5\n1/10\n运行统计\n活跃连接\n29\n下载\n36.16 MB\n上传\n5.78 MB\nCPU 使用率\n0.0%\n内存使用率\n69.57 MB\n网络信息\n内网 IP\n192.168.10.3\n国内出口\n中国 江苏 常州 电信\n***.***.***.***\n国际出口\nChina China Telecom\n***.***.***.***\n运行配置\n\n核心参数与网络设置\n\nRule\nInfo\n代理端口\nLinux/Mac\nPowerShell\nHTTP\n7890\nSOCKS\n7891\nMixed\n7892\nRedir\n7877\nTProxy\n7896\n网络配置\n已启用已启用\n绑定地址\n*\n绑定地址\nenp1s0\nI",
+      "file": "pages/33_legacy_proxy_mihomo_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo/proxies",
+      "name": "34_legacy_proxy_mihomo_proxies_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo/proxies",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/proxies",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n代理\n代理组 16\n•\n连接 29\n•\n↑ 2.44 KB/s\n•\n↓ 165.88 KB/s\n•\n上传 5.78 MB\n•\n下载 36.16 MB\n•\n模式 规则\n•\n供应商 18\n自动刷新：开\n策略组 (16)\n供应商 (2)\n直连\n规则\n全局\n默认排序\ndefault\n按配置排序\n按名称升序\n按名称降序\n全部\nSelector\n节点选择\n: Selector (17/11)\n140ms\n美国节点\n漏网之鱼\n: Selector (4/12)\n140ms\n美国节点\n人工智能\n: Selector (4/11)\n140ms\n美国节点\nNetflix\n: Selector (0/11)\n36ms\n香港节点\n微软服务\n: Selector (0/2)\n全球直连\nSpotify\n: Selector (0/11)\n140ms\n节点选择\nTelegram\n: Selector (3/7)\n140ms\n美",
+      "file": "pages/34_legacy_proxy_mihomo_proxies_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo/rules",
+      "name": "35_legacy_proxy_mihomo_rules_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo/rules",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/rules",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n规则\n总计\n60\n共\n•\n条\n25\n规则 (60)\n供应商 (25)\n#1\nDST-PORT\n123\nDIRECT\nDIRECT\n#2\nDOMAIN-SUFFIX\nsssaicode.com\nDIRECT\nDIRECT\n#3\nDOMAIN-KEYWORD\ndocker\n香港节点\n🇭🇰 HKG 02\n36\n#4\nDOMAIN-SUFFIX\neastmoney.com\nDIRECT\nDIRECT\n#5\nDOMAIN-SUFFIX\nsina.com.cn\nDIRECT\nDIRECT\n#6\nDOMAIN-SUFFIX\nsinajs.cn\nDIRECT\nDIRECT\n#7\nDOMAIN\ncdn.12api.org\nDIRECT\nDIRECT\n#8\nDOMAIN\ncdn.atk.pro\nDIRECT\nDIRECT\n#9\nDOMAIN-SUFFIX\nbrave.com\n美国节点\nUSxDMITan4pro-",
+      "file": "pages/35_legacy_proxy_mihomo_rules_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo/connections",
+      "name": "36_legacy_proxy_mihomo_connections_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo/connections",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/connections",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n连接\n29\n活跃\n•\n0\n已关闭\n已关闭\n36.3 MB\n下载总量\n5.78 MB\n下载速度\n0 B/s\n上传速度\n0 B/s\n关闭所有活跃连接\n活跃 (29)\n已关闭 (0)\nall\nTCP\nUDP\nall\n127.0.0.1\n192.168.10.3\n\thost\t主机\tleft\thost\t下载速度\ttype\t类型\tleft\t连接时间\n↓\n\n\n\t\napi.github.com\nTCP\n127.0.0.1:33014 → 20.205.243.168:443\n\tSocks5 | tcp\tRuleSet: GitHub\t\n节点选择 › 美国节点 › USxDMITan4pro-vless_reality_vision\n\t0 B/s\t0 B/s\t151 KB\t1.71 KB\t\n5 秒前\n5s\n\n\n\t\nraw.githubusercontent.com\nTCP\n192.168.10.223:49230 ",
+      "file": "pages/36_legacy_proxy_mihomo_connections_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo/logs",
+      "name": "37_legacy_proxy_mihomo_logs_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo/logs",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/logs",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n日志查看\nMIHOMO\n全部\nERROR\nWARN\nINFO\nDEBUG\n总日志数: 59\nERROR: 18\n2026-05-28 12:21:01.997\nINFO\n[TCP] 192.168.10.223:65332 --> www.google.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.998\nINFO\n[TCP] 192.168.10.223:65330 --> safebrowsingohttpgateway.googleapis.com:443 match RuleSet(Google) using 节点选择[USxDMITan4pro-vless_reality_vision]\n2026-05-28 12:21:01.999\nINF",
+      "file": "pages/37_legacy_proxy_mihomo_logs_redirect.html",
+      "ok": true
+    },
+    {
+      "route": "/proxy/mihomo/config",
+      "name": "38_legacy_proxy_mihomo_config_redirect",
+      "targetUrl": "http://192.168.10.3:7777/proxy/mihomo/config",
+      "finalUrl": "http://192.168.10.3:7777/mihomo/config",
+      "title": "MSM 管理平台",
+      "textSample": "MSM\nR\nroot\n管理员\n仪表盘\nMosDNS\n代理服务\nMihomo\n概览\n代理节点\n规则管理\n连接管理\n配置管理\n日志查看\n进程管理\n配置管理\n日志查看\n用户管理\n系统诊断\n系统设置\n服务控制\n运行中\n版本：pid 2799503, uptime 2:26:47\nCPU / 内存：0.0% / 70.1 MB\n运行时间：2 小时 26 分钟\nPID：2799503\n重启\n停止\n配置文件编辑器\n\n未保存\n\n上传\n下载\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n# 锚点 - 筛选组\nFilterHK: &FilterHK \"^(?=.*(?<!深)(港|HK|(?i)Hong))(?!(.*(台|本|坡|美))).*$\"\nFilterSG: &FilterSG '^(?=.*(?i)(坡|🇸🇬|SG|Sing|SIN|XSP)).*$'\nFilterJP: &Filter",
+      "file": "pages/38_legacy_proxy_mihomo_config_redirect.html",
+      "ok": true
+    }
+  ],
+  "mirroredResources": [
+    {
+      "ref": "logo/favicon.svg",
+      "ok": true,
+      "status": 200,
+      "bytes": 22474
+    },
+    {
+      "ref": "logo/manifest.json",
+      "ok": true,
+      "status": 200,
+      "bytes": 762
+    },
+    {
+      "ref": "logo/logo-square.svg",
+      "ok": true,
+      "status": 200,
+      "bytes": 22476
+    },
+    {
+      "ref": "assets/index-CDz96t7w.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 511940
+    },
+    {
+      "ref": "assets/react-vendor-Bt7EHJHg.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 46093
+    },
+    {
+      "ref": "assets/editor-vendor-Ca1lPq8W.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 429939
+    },
+    {
+      "ref": "assets/utils-vendor-yfWiyOYv.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 79003
+    },
+    {
+      "ref": "assets/ui-vendor-DTdpf_eS.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 98835
+    },
+    {
+      "ref": "assets/index-DRccY1aP.css",
+      "ok": true,
+      "status": 200,
+      "bytes": 256189
+    },
+    {
+      "ref": "logo/logo-192x192.png",
+      "ok": true,
+      "status": 200,
+      "bytes": 9539
+    },
+    {
+      "ref": "logo/logo-512x512.png",
+      "ok": true,
+      "status": 200,
+      "bytes": 9539
+    },
+    {
+      "ref": "assets/SetupPage-DdA2yCo8.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 60496
+    },
+    {
+      "ref": "assets/Card-uiOvXNOT.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 887
+    },
+    {
+      "ref": "assets/MihomoProxiesEditor-BUeNjoRe.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 7245
+    },
+    {
+      "ref": "assets/crypto-DDRdfUrs.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 9623
+    },
+    {
+      "ref": "assets/LoginPage-B6tHDKyB.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 18559
+    },
+    {
+      "ref": "assets/Dashboard-DWdp7VWA.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 127929
+    },
+    {
+      "ref": "assets/Dashboard-CISbXXKC.css",
+      "ok": true,
+      "status": 200,
+      "bytes": 2304
+    },
+    {
+      "ref": "assets/MosDNSPage-tYtImzga.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 9138
+    },
+    {
+      "ref": "assets/ServiceControl-CdHqp42i.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 4172
+    },
+    {
+      "ref": "assets/Badge-CXuVhW4V.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 974
+    },
+    {
+      "ref": "assets/index-JC_8O4Ju.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 595
+    },
+    {
+      "ref": "assets/LogsPanel-9Nth5XpA.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 13040
+    },
+    {
+      "ref": "assets/ConfigPanel-C1d0nLTJ.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 8374
+    },
+    {
+      "ref": "assets/VersionManager-BhW9kBLE.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 5002
+    },
+    {
+      "ref": "assets/index-1ZLI1t6p.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 197472
+    },
+    {
+      "ref": "assets/Tabs-D_HCB168.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 1579
+    },
+    {
+      "ref": "assets/LogsPage-BEZLBejt.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 9092
+    },
+    {
+      "ref": "assets/index-BgxVk742.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 660
+    },
+    {
+      "ref": "assets/ProcessPage-pUMmoZ2j.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 9077
+    },
+    {
+      "ref": "assets/ConfigPage-fZC7MKqO.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 24369
+    },
+    {
+      "ref": "assets/UsersPage-0ioUtdht.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 25225
+    },
+    {
+      "ref": "assets/SettingsPage-BpvVNGti.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 209645
+    },
+    {
+      "ref": "assets/SystemPage-BJMUQc2o.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 17308
+    },
+    {
+      "ref": "assets/index-l_eHHPiu.js",
+      "ok": true,
+      "status": 200,
+      "bytes": 298636
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 0 L 50% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 0 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 100% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 0 L 50% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 0 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 100% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 0 L 50% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 0 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Error: <path> attribute d: Expected number, \"M 50% 50% L 100% 50%\".",
+      "url": "http://192.168.10.3:7777/login"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/mosdns/service-config"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: API endpoint not found\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async i (http://192.168.10.3:7777/assets/index-l_eHHPiu.js:14:73773)\n    at async Promise.all (index 3)\n    at async http://192.168.10.3:7777/assets/index-l_eHHPiu.js:14:74330",
+      "url": "http://192.168.10.3:7777/mosdns/service-config"
+    },
+    {
+      "type": "error",
+      "text": "common.sseReadFailed TypeError: network error",
+      "url": "http://192.168.10.3:7777/mosdns/query-log"
+    },
+    {
+      "type": "error",
+      "text": "查询日志 SSE 出错 TypeError: network error",
+      "url": "http://192.168.10.3:7777/mosdns/query-log"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: TypeError: Failed to fetch\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34422)\n    at Object.getTrafficStats (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:45327)\n    at v (http://192.168.10.3:7777/assets/index-1ZLI1t6p.js:13:9213)\n    at http://192.168.10.3:7777/assets/index-1ZLI1t6p.js:13:9413\n    at Rn (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:92776)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108952)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108938)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108938)",
+      "url": "http://192.168.10.3:7777/mihomo/proxies"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async Object.getFile (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:38034)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:69:23577",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async Object.getFile (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:38034)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:69:23577",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async Object.getFile (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:38034)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:69:23577",
+      "url": "http://192.168.10.3:7777/singbox/config"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 日志文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:71:109",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 日志文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:71:109",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 日志文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async http://192.168.10.3:7777/assets/index-CDz96t7w.js:71:109",
+      "url": "http://192.168.10.3:7777/singbox/logs"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.10.3:7777/logs/singbox"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: Error: 日志文件不存在\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34717)\n    at async H (http://192.168.10.3:7777/assets/LogsPage-BEZLBejt.js:1:7499)\n    at async http://192.168.10.3:7777/assets/LogsPage-BEZLBejt.js:1:7743",
+      "url": "http://192.168.10.3:7777/logs/singbox"
+    },
+    {
+      "type": "error",
+      "text": "API Request Error: TypeError: Failed to fetch\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34422)\n    at Object.getReleases (http://192.168.10.3:7777/assets/index-CDz96t7w.js:63:4273)\n    at http://192.168.10.3:7777/assets/SettingsPage-BpvVNGti.js:14:18501\n    at http://192.168.10.3:7777/assets/SettingsPage-BpvVNGti.js:14:19145\n    at Rn (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:92776)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108952)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108938)",
+      "url": "http://192.168.10.3:7777/settings"
+    },
+    {
+      "type": "error",
+      "text": "加载发布列表失败: TypeError: Failed to fetch\n    at D (http://192.168.10.3:7777/assets/index-CDz96t7w.js:55:34422)\n    at Object.getReleases (http://192.168.10.3:7777/assets/index-CDz96t7w.js:63:4273)\n    at http://192.168.10.3:7777/assets/SettingsPage-BpvVNGti.js:14:18501\n    at http://192.168.10.3:7777/assets/SettingsPage-BpvVNGti.js:14:19145\n    at Rn (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:92776)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108952)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:109200)\n    at _l (http://192.168.10.3:7777/assets/index-CDz96t7w.js:25:108938)",
+      "url": "http://192.168.10.3:7777/settings"
+    }
+  ]
+}
