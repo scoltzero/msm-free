@@ -1,0 +1,13 @@
+[
+  {
+    "name": "geosite_no_cn",
+    "type": "geositenocn",
+    "files": "srs/geolocation-!cn.srs",
+    "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/sing/geo/geosite/geolocation-!cn.srs",
+    "enabled": true,
+    "auto_update": false,
+    "update_interval_hours": 24,
+    "rule_count": 26480,
+    "last_updated": "2025-12-19T16:33:09.388565293+08:00"
+  }
+]

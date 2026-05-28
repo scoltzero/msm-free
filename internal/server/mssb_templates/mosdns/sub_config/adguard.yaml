@@ -1,0 +1,6 @@
+plugins:
+  - tag: adguard
+    type: adguard_rule
+    args:
+      dir: "adguard/"
+      socks5: ""

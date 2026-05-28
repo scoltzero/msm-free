@@ -1,0 +1,43 @@
+# Merged and deduplicated AdGuard Home filter rules
+
+# From SophiEZzz and anti-AD
+||gjfzpt.cn^
+||szbdyd.com^
+||bsccdn.net^
+||pkoplink.com^
+||saxysec.com^
+||uhabo.com^
+||xycdn.com^
+||kuiniuca.com^
+||onethingpcs.com^
+||jomodns.cn^
+||p2p.huya.com^
+||stun.douyucdn.cn^
+||stun.hitv.com^
+||stun1.douyucdn.cn^
+||mcdn.bilivideo.cn^
+||tpa-hcdn.iqiyi.com^
+||pcdn.xmcdn.com^
+||pcdn.yximgs.com^
+||dyp2p-ali.douyucdn.cn^
+||dyp2p-hw.douyucdn.cn^
+||p2p-ali.douyucdn.cn^
+||p2p.qq.com^
+||p2pchunk-hw.douyucdn.cn^
+||p2pchunk-table.douyucdn.cn^
+||p2pchunk-ws.douyucdn.cn^
+||p2perrorlog.douyucdn.cn^
+||p2plive-ali.douyucdn.cn^
+||p2plive-ws.douyucdn.cn^
+||p2plog.douyucdn.cn^
+||p2ptun.qq.com^
+||p2pupdate.gamedl.qq.com^
+||p2pupgrade.gamedl.qq.com^
+||p2pvod-ws.douyucdn.cn^
+
+
+# 正则表达式，AdGuard Home 
+/^.*pcdn.*biliapi\.net^
+/^.*pcdn.*youku\.com^
+/^.*p2p.*douyucdn\.cn^
+/^.*p2p.*qq\.com^

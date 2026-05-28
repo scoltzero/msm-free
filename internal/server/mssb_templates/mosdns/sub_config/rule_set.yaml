@@ -1,0 +1,259 @@
+plugins:
+#给mosdns虚拟机添加nft规则，适用于openwrt及sing-box/mosdns安装在同一虚拟机的情况
+  - tag: nft_add
+    type: nft_add
+    args:
+      socks5: ""
+      local_config: "nft/nftadd.json"
+      nft_config:
+        enable: "nft_false"
+        startup_delay: 5
+        table_family: "inet"
+        table_name: "sing-box"
+        set_v4: "local_ipv4"
+        set_v6: "local_ipv6"
+        fixip: "nft/fixip.txt"
+        nftfile: "nft/nft.conf"
+
+#列表外域名解析IP为此列表中IP，归入直连
+  - tag: direct_ip
+    type: ip_set
+    args:
+      files:
+        - "rule/direct_ip.txt"
+
+#列表外域名解析IP为此列表中IP，归入直连
+  - tag: nft_ip
+    type: ip_set
+    args:
+      files:
+        - "nft/fixip.txt"
+
+#重定向
+  - tag: rewrite
+    type: rewrite
+    args:
+      files:
+        - "rule/rewrite.txt"
+      dns: 127.0.0.1:2222
+
+#自定义国外域名列表
+  - tag: cusnocn
+    type: sd_set_light    
+    args:
+      socks5: "" 
+      local_config: "srs/cusnocn.json" 
+
+#自定义国内域名列表
+  - tag: cuscn
+    type: sd_set_light    
+    args:
+      socks5: "" 
+      local_config: "srs/cuscn.json" 
+
+#生成的realip规则
+  - tag: my_realiprule
+    type: domain_set_light
+    args:
+      files:
+        - "gen/realiprule.txt"
+
+#生成的fakeip规则
+  - tag: my_fakeiprule
+    type: domain_set_light
+    args:
+      files:
+        - "gen/fakeiprule.txt"
+
+#生成的没有v6的域名规则
+  - tag: my_nov6rule
+    type: domain_set_light
+    args:
+      files:
+        - "gen/nov6rule.txt"
+
+#生成的没有ip的域名规则
+  - tag: my_nov4rule
+    type: domain_set_light
+    args:
+      files:
+        - "gen/nov4rule.txt"
+
+#生成的节点没有v6的域名规则
+  - tag: my_nodenov6rule
+    type: domain_set
+    args:
+      files:
+        - "gen/nodenov6rule.txt"
+
+#生成的节点没有ip的域名规则
+  - tag: my_nodenov4rule
+    type: domain_set
+    args:
+      files:
+        - "gen/nodenov4rule.txt"
+
+#中国域名列表
+  - tag: geosite_cn
+    type: sd_set_light    
+    args:
+      socks5: "" 
+      local_config: "srs/geositecn.json" 
+
+#中国IP列表
+  - tag: geoip_cn
+    type: si_set    
+    args:
+      socks5: "" 
+      local_config: "srs/geoipcn.json" 
+
+#需要代理的客户端IP列表
+  - tag: client_ip
+    type: ip_set
+    args:
+      files:
+        - "client_ip.txt"
+
+#国外域名列表
+  - tag: geosite_no_cn
+    type: sd_set_light    
+    args:
+      socks5: "" 
+      local_config: "srs/geositenocn.json" 
+
+#自定义白名单域名列表
+  - tag: whitelist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/whitelist.txt"
+
+#自定义白名单域名列表
+  - tag: cnfakeipfilter
+    type: domain_set_light
+    args:
+      files:
+        - "rule/cnfakeipfilter.txt"
+
+#屏蔽域名列表
+  - tag: blocklist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/blocklist.txt"
+
+#国外dns解析realip域名列表
+  - tag: realiplist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/realiplist.txt"
+
+#自定义强制代理域名列表
+  - tag: greylist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/greylist.txt"
+
+#ddns域名列表
+  - tag: ddnslist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/ddnslist.txt"
+
+#pcdn域名列表
+  - tag: pcdnlist
+    type: domain_set_light
+    args:
+      files:
+        - "rule/pcdnlist.txt"
+
+#pcdn正则屏蔽v4请求
+  - tag: pcdnregv4
+    type: domain_set
+    args:
+      files:
+        - "rule/pcdnregv4.txt"
+
+#pcdn正则屏蔽v6请求
+  - tag: pcdnregv6
+    type: domain_set
+    args:
+      files:
+        - "rule/pcdnregv6.txt"
+
+#统一域名匹配,设置fast_mark和域名输出tag，屏蔽部分
+  - tag: unified_matcher1
+    type: domain_mapper
+    args:
+      rules:
+        - tag: blocklist
+          mark: 1 
+          output_tag: "黑名单"
+        - tag: my_nov4rule
+          mark: 2 
+          output_tag: "记忆无V4"
+        - tag: my_nov6rule
+          mark: 3 
+          output_tag: "记忆无V6"
+        - tag: pcdnlist
+          mark: 4 
+          output_tag: "PCDN"
+        - tag: adguard
+          mark: 5 
+          output_tag: "广告屏蔽"
+        - tag: ddnslist
+          mark: 6 
+          output_tag: "DDNS域名"
+
+#统一域名匹配,设置mark和域名输出tag，fakeip filter部分
+  - tag: unified_matcher3
+    type: domain_mapper
+    args:
+      rules:
+        - tag: realiplist
+          mark: 9
+          output_tag: "!CN fakeip filter"
+        - tag: cnfakeipfilter
+          mark: 10
+          output_tag: "CN fakeip filter"
+
+#统一域名匹配,设置mark和域名输出tag，灰白名单匹配部分
+  - tag: unified_matcher4
+    type: domain_mapper
+    args:
+      rules:
+        - tag: greylist
+          mark: 7
+          output_tag: "灰名单"
+        - tag: whitelist
+          mark: 8 
+          output_tag: "白名单"
+
+#统一域名匹配,设置mark和域名输出tag，其它名单匹配部分
+  - tag: unified_matcher5
+    type: domain_mapper
+    args:
+      default_mark: 17 
+      default_tag: "未命中"
+      rules:
+        - tag: my_realiprule
+          mark: 11
+          output_tag: "记忆直连"
+        - tag: my_fakeiprule
+          mark: 12
+          output_tag: "记忆代理"
+        - tag: cuscn
+          mark: 13
+          output_tag: "订阅直连补充"
+        - tag: geosite_no_cn
+          mark: 14
+          output_tag: "订阅代理"
+        - tag: cusnocn
+          mark: 15
+          output_tag: "订阅代理补充"
+        - tag: geosite_cn
+          mark: 16
+          output_tag: "订阅直连"

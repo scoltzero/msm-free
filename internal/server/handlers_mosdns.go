@@ -382,7 +382,7 @@ func (a *App) handleMosDNSClientProxyModePut(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *App) handleMosDNSRules(w http.ResponseWriter, r *http.Request) {
-	nodes, err := a.fileTree("configs/mosdns/rules", 3)
+	nodes, err := a.fileTree("configs/mosdns/rule", 3)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "path_error", err.Error())
 		return
@@ -552,7 +552,7 @@ func (a *App) handleMosDNSQueryMeta(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSRuleSets(w http.ResponseWriter, r *http.Request) {
-	nodes, _ := a.fileTree("configs/mosdns/rules", 2)
+	nodes, _ := a.fileTree("configs/mosdns/rule", 2)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "rule_sets": nodes, "data": map[string]any{"rule_sets": nodes}})
 }
 
@@ -597,7 +597,7 @@ func (a *App) handleMosDNSRoutingTask(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleMosDNSUpstreams(w http.ResponseWriter, r *http.Request) {
 	local, _ := a.readTextFile("configs/mosdns/sub_config/forward_local.yaml")
-	remote, _ := a.readTextFile("configs/mosdns/sub_config/forward_remote.yaml")
+	remote, _ := a.readTextFile("configs/mosdns/sub_config/forward_nocn.yaml")
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]string{"forward_local": local, "forward_remote": remote}})
 }
 
@@ -612,7 +612,7 @@ func (a *App) handleMosDNSUpstreamsPut(w http.ResponseWriter, r *http.Request) {
 		case "forward_local", "local":
 			_ = a.writeTextFile("configs/mosdns/sub_config/forward_local.yaml", content)
 		case "forward_remote", "remote":
-			_ = a.writeTextFile("configs/mosdns/sub_config/forward_remote.yaml", content)
+			_ = a.writeTextFile("configs/mosdns/sub_config/forward_nocn.yaml", content)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -708,7 +708,7 @@ func (a *App) handleMosDNSClientIPListPut(w http.ResponseWriter, r *http.Request
 
 func (a *App) handleMosDNSSystemDomains(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.PathValue("name"), "/")
-	content, _ := a.readTextFile(filepath.ToSlash(filepath.Join("configs/mosdns/rules", name)))
+	content, _ := a.readTextFile(filepath.ToSlash(filepath.Join("configs/mosdns/rule", name)))
 	lines := splitNonEmptyLines(content)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": lines, "domains": lines})
 }
@@ -849,7 +849,7 @@ func mosDNSRuleCategoryFile(category string) string {
 		category = "whitelist"
 	}
 	category = filepath.Base(category)
-	return filepath.ToSlash(filepath.Join("configs/mosdns/rules", category+".txt"))
+	return filepath.ToSlash(filepath.Join("configs/mosdns/rule", category+".txt"))
 }
 
 func (a *App) readMosDNSRulePatterns(category string) []string {
@@ -961,16 +961,19 @@ func (a *App) mosDNSSwitchMap() map[string]bool {
 }
 
 func (a *App) rewriteMosDNSSwitchFile() error {
-	var b strings.Builder
-	b.WriteString("plugins: []\n# switch states are managed by msm-free and mirrored in sqlite.\n")
 	for k, v := range a.mosDNSSwitchMap() {
-		b.WriteString("# ")
-		b.WriteString(k)
-		b.WriteString("=")
-		b.WriteString(strconv.FormatBool(v))
-		b.WriteString("\n")
+		value := "B"
+		if v {
+			value = "A"
+		}
+		if err := a.writeTextFile(filepath.ToSlash(filepath.Join("configs/mosdns/rule", k+".txt")), value+"\n"); err != nil {
+			return err
+		}
+		if a.Services.Status("mosdns").Running {
+			_ = httpPostJSONText("http://127.0.0.1:9099/plugins/"+k+"/post", fmt.Sprintf(`{"value":%q}`, value))
+		}
 	}
-	return a.writeTextFile("configs/mosdns/sub_config/switch.yaml", b.String())
+	return nil
 }
 
 func (a *App) rewriteMosDNSClientIPFile() error {
@@ -1099,6 +1102,16 @@ func proxyText(url string) (string, bool) {
 func httpPostNoBody(url string) error {
 	client := &http.Client{Timeout: 1500 * time.Millisecond}
 	resp, err := client.Post(url, "application/json", nil)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
+func httpPostJSONText(url, body string) error {
+	client := &http.Client{Timeout: 1500 * time.Millisecond}
+	resp, err := client.Post(url, "application/json", strings.NewReader(body))
 	if err != nil {
 		return err
 	}

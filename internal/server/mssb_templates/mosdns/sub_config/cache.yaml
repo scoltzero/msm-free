@@ -1,0 +1,69 @@
+plugins:
+#全部缓存 第1层缓存 直面客户端
+  - tag: cache_all
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+#      exclude_ip:
+#        - 28.0.0.0/8
+#        - 2001:2::/64
+      dump_file: cache/cache_all.dump
+      dump_interval: 36000
+
+#全部缓存 第1层缓存 直面客户端
+  - tag: cache_all_noleak
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      exclude_ip:
+#        - 28.0.0.0/8
+#        - 2001:2::/64
+      dump_file: cache/cache_all_noleak.dump
+      dump_interval: 36000
+
+#中国域名列表的过期缓存
+  - tag: cache_cn
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      dump_file: cache/cache_cn.dump
+      dump_interval: 36000
+
+#列表外域名的过期缓存
+  - tag: cache_google
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      dump_file: cache/cache_google.dump
+      dump_interval: 36000
+
+  - tag: cache_google_node
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      enable_ecs: true
+      dump_file: cache/cache_google_node.dump
+      dump_interval: 36000
+
+#节点域名列表的过期缓存
+  - tag: cache_node
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      dump_file: cache/cache_node.dump
+      dump_interval: 36000
+
+#cnmihomo fakeip过期缓存
+  - tag: cache_cnmihomo
+    type: cache
+    args:
+      size: 20000000
+      lazy_cache_ttl: 259200000
+      dump_file: cache/cache_cnmihomo.dump
+      dump_interval: 36000
