@@ -60,16 +60,45 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(cfg)
-	for _, want := range []string{"proxy-providers:", "https://example.com/a.yaml", "机场A", "机场1", "tproxy-port: 7896"} {
+	for _, want := range []string{"proxy-providers:", "https://example.com/a.yaml", "机场A", "机场1", "tproxy-port: 7896", "listen: 0.0.0.0:6666", "fake-ip-range: 28.0.0.1/8"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("mihomo config missing %q:\n%s", want, text)
+		}
+	}
+	mosdnsConfig, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mosdnsText := string(mosdnsConfig)
+	for _, want := range []string{"sequence_6666", `listen: ":53"`, `listen: ":66"`, `listen: ":77"`, "listen: 127.0.0.1:5656"} {
+		if !strings.Contains(mosdnsText, want) {
+			t.Fatalf("mosdns config missing %q:\n%s", want, mosdnsText)
+		}
+	}
+	mssbFiles := map[string][]string{
+		"configs/mosdns/sub_config/forward_1.yaml":        {"udp://127.0.0.1:6666", `listen: ":2222"`},
+		"configs/mosdns/sub_config/forward_nocn.yaml":     {`listen: ":3333"`},
+		"configs/mosdns/sub_config/forward_nocn_ecs.yaml": {`listen: ":4444"`},
+		"configs/mosdns/sub_config/for_singbox.yaml":      {`listen: ":7777"`, `listen: ":8888"`},
+		"configs/mosdns/sub_config/forward_2.yaml":        {"127.0.0.1:5656", "entry: sequence_6666"},
+	}
+	for rel, wants := range mssbFiles {
+		b, err := os.ReadFile(filepath.Join(app.DataDir, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := string(b)
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Fatalf("%s missing %q:\n%s", rel, want, got)
+			}
 		}
 	}
 	nft, err := os.ReadFile(filepath.Join(app.DataDir, "configs/network/network.nft"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(nft), `iifname "eth0"`) || !strings.Contains(string(nft), "tproxy to :7896") {
+	if !strings.Contains(string(nft), `iifname { "lo", "eth0" }`) || !strings.Contains(string(nft), "tproxy to :7896") || !strings.Contains(string(nft), "redirect to :7877") || !strings.Contains(string(nft), "28.0.0.0/8") {
 		t.Fatalf("nft template not rendered correctly:\n%s", nft)
 	}
 }

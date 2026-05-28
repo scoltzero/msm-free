@@ -25,7 +25,7 @@ func componentDownloadURL(component string) string {
 	case "mihomo":
 		return "https://github.com/baozaodetudou/mssb/releases/download/mihomo/mihomo-meta-linux-amd64.tar.gz"
 	case "mosdns":
-		return "https://github.com/yyysuo/mosdns/releases/latest/download/mosdns-linux-amd64.zip"
+		return "https://github.com/baozaodetudou/mssb/releases/download/mosdns/mosdns-linux-amd64.zip"
 	case "zashboard", "ui":
 		return "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip"
 	default:

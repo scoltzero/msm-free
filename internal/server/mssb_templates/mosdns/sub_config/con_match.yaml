@@ -1,0 +1,35 @@
+plugins:
+# geosite-geolocation-!cn@cn/geosite_cn 801
+# geosite-cn@!cn/geosite_no_cn          901
+# my_realiprule                         888
+# my_fakeiprule                         999
+# other                                 1000
+
+  - tag: domain_match
+    type: sequence
+    args:
+      - matches: qname $cuscn
+        exec: mark 801
+      - matches:
+        - "!mark 801"
+        - "qname $cusnocn"
+        exec: mark 901 
+      - matches:
+        - "!mark 801 901"
+        - "qname $my_realiprule"
+        exec: mark 888
+      - matches:
+        - "!mark 801 888 901"
+        - "qname $my_fakeiprule"
+        exec: mark 999 
+      - matches:
+        - "!mark 801 888 901 999"
+        - "qname $geosite_cn"
+        exec: mark 801
+      - matches:
+        - "!mark 801 888 901 999"
+        - "qname $geosite_no_cn"
+        exec: mark 901
+      - matches:
+        - "!mark 801 888 901 999"
+        exec: mark 1000

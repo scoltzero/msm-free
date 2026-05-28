@@ -13,9 +13,9 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Initial Unraid plugin package.
+- Adds the mssb-style MosDNS + Mihomo split-flow configuration templates.
+- Uses MosDNS :53, Mihomo DNS :6666, fake-ip 28.0.0.0/8, TProxy 7896, and redirect 7877.
 - Installs msm-free WebUI manager and stores persistent data under /mnt/user/appdata/msm-free by default.
-- Does not apply nftables or network rules during plugin installation.
     ]]>
   </CHANGES>
 

@@ -9,6 +9,7 @@
 - 首版支持 x86_64 Linux。
 - 代理核心只实现 Mihomo，暂不实现 sing-box。
 - MosDNS、Mihomo、nftables 透明代理、初始化引导、用户管理、配置历史、日志和更新相关 API 都作为开放功能实现。
+- 已按 mssb 方式生成 MosDNS + Mihomo 国内外分流链路：MosDNS `:53` 入口，Mihomo DNS `:6666`，fake-ip `28.0.0.0/8`，TProxy `7896`，redirect `7877`，并包含 `2222/3333/4444/5656/7777/8888/9099` 等 MosDNS 侧端口。
 - 支持普通 Linux systemd 安装包。
 - 支持 Unraid 插件安装方式。
 
@@ -18,7 +19,7 @@
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.0/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.1/msm-free-linux-amd64.tar.gz
 ```
 
 解压并安装：
@@ -85,19 +86,19 @@ go run ./cmd/msm-free serve -c ./data -p 7777
 构建 Linux x86_64 压缩包：
 
 ```bash
-make build VERSION=0.1.0
+make build VERSION=0.1.1
 ```
 
 构建 Unraid 插件产物：
 
 ```bash
-make unraid VERSION=0.1.0 UNRAID_VERSION=0.1.0 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.0
+make unraid VERSION=0.1.1 UNRAID_VERSION=0.1.1 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.1
 ```
 
 构建产物：
 
 - `dist/msm-free-linux-amd64.tar.gz`
-- `dist/unraid/msm-free-0.1.0-x86_64-1.txz`
+- `dist/unraid/msm-free-0.1.1-x86_64-1.txz`
 - `msm-free.plg`
 
 发布时，`.txz` 和 Linux `.tar.gz` 上传到 GitHub Release，`msm-free.plg` 保留在仓库根目录供 Unraid 安装器读取。

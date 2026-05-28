@@ -1,21 +1,21 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name "msm-free">
 <!ENTITY author "luochuhan">
-<!ENTITY version "0.1.0">
+<!ENTITY version "0.1.1">
 <!ENTITY githubRepo "scoltzero/msm-free">
-<!ENTITY releaseTag "v0.1.0">
-<!ENTITY packageName "msm-free-0.1.0-x86_64-1">
+<!ENTITY releaseTag "v0.1.1">
+<!ENTITY packageName "msm-free-0.1.1-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "b90b0d11525fb9982d49ec310990563f440bbf17c90b54541960ecb8744b6027">
+<!ENTITY packageSHA256 "5a7a845356f93ba1c7ac90615de6d416550dd9c8dc9f84eaea2e1917339ca562">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
-### msm-free 0.1.0
-- Initial Unraid plugin package.
+### msm-free 0.1.1
+- Adds the mssb-style MosDNS + Mihomo split-flow configuration templates.
+- Uses MosDNS :53, Mihomo DNS :6666, fake-ip 28.0.0.0/8, TProxy 7896, and redirect 7877.
 - Installs msm-free WebUI manager and stores persistent data under /mnt/user/appdata/msm-free by default.
-- Does not apply nftables or network rules during plugin installation.
     ]]>
   </CHANGES>
 
@@ -55,8 +55,8 @@ set +e
 if [ -x /etc/rc.d/rc.msm-free ]; then
   /etc/rc.d/rc.msm-free stop
 fi
-removepkg msm-free-0.1.0-x86_64-1
-rm -f /boot/config/plugins/msm-free/msm-free-0.1.0-x86_64-1.txz
+removepkg msm-free-0.1.1-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-0.1.1-x86_64-1.txz
 echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
       ]]>
     </INLINE>

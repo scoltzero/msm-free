@@ -7,6 +7,7 @@ Current target:
 - x86_64 Linux first.
 - Mihomo is the only proxy core in scope for the first version.
 - MosDNS, Mihomo, nftables transparent proxy, setup wizard, users, config history, logs and update APIs are implemented as open functionality.
+- The generated runtime now follows the mssb MosDNS + Mihomo split-flow layout: MosDNS `:53`, Mihomo DNS `:6666`, fake-ip `28.0.0.0/8`, TProxy `7896`, redirect `7877`, plus the MosDNS-side `2222/3333/4444/5656/7777/8888/9099` ports.
 - Sing-box is intentionally out of scope for the first version.
 - Unraid plugin packaging is included as a second deployment target.
 
@@ -22,7 +23,7 @@ Then open `http://localhost:7777`.
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.0/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.1/msm-free-linux-amd64.tar.gz
 tar -xzf msm-free-linux-amd64.tar.gz -C /tmp
 sudo /tmp/msm-free-*-linux-amd64/install.sh
 ```
@@ -49,7 +50,7 @@ Persistent Unraid data defaults to `/mnt/user/appdata/msm-free`.
 
 ```bash
 make build
-make unraid VERSION=0.1.0 UNRAID_VERSION=0.1.0 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.0
+make unraid VERSION=0.1.1 UNRAID_VERSION=0.1.1 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.1
 ```
 
 The generated artifacts are:

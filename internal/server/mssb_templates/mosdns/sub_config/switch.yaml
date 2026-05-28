@@ -1,0 +1,105 @@
+plugins:
+#开关，配置web ui，可以实现动态切换泄露版本/不泄露版本逻辑 源码内置了9个开关备用
+#curl -X POST http://10.10.10.1:9099/plugins/switch1/post -H "Content-Type: application/json" -d '{"value":"B"}'
+#未部署Adguard Home联动的，建议启用。
+#是否启用屏蔽无解析结果的A、AAAA请求及黑名单  'A'-启用  'B'-不启用
+  - tag: switch1
+    type: switch1
+    args:
+      initial_value: "rule/switch1.txt"
+
+#需要mosdns占用53端口并下发给客户端，按需要启用
+#是否启用指定client科学开关  'A'-启用  'B'-不启用
+  - tag: switch2
+    type: switch2
+    args:
+      initial_value: "rule/switch2.txt"
+
+#需要mosdns占用53端口并下发给客户端，按需要启用
+#是否启用指定client不科学开关  'A'-启用  'B'-不启用
+  - tag: switch12
+    type: switch12
+    args:
+      initial_value: "rule/switch12.txt"
+
+#强烈建议泄露版本
+#泄露版本/不泄露版本开关 'A'-泄露  'B'-不泄露
+  - tag: switch3
+    type: switch3
+    args:
+      initial_value: "rule/switch3.txt"
+
+#强烈建议打开
+#是否启用过期缓存1开关 'A'-打开  'B'-关闭  
+#cache_google_node缓存不会被关闭，否则会影响7777逻辑
+  - tag: switch4
+    type: switch4
+    args:
+      initial_value: "rule/switch4.txt"
+
+#是否启用过期缓存2开关 'A'-打开  'B'-关闭  
+  - tag: switch13
+    type: switch13
+    args:
+      initial_value: "rule/switch13.txt"
+
+#强烈建议打开
+#是否阻止SOA PTR HTTPS类型的dns查询  'A'-打开  'B'-关闭  
+  - tag: switch5
+    type: switch5
+    args:
+      initial_value: "rule/switch5.txt"
+
+#按需打开
+#是否阻止AAAA类型的dns查询  'A'-打开  'B'-关闭  
+  - tag: switch6
+    type: switch6
+    args:
+      initial_value: "rule/switch6.txt"
+
+#按需打开
+#是否打开adguard去广告功能  'A'-打开  'B'-关闭  
+  - tag: switch7
+    type: switch7
+    args:
+      initial_value: "rule/switch7.txt"
+
+#国内域名fakeip realip切换  'A'-realip  'B'-fakeip
+  - tag: switch9
+    type: switch9
+    args:
+      initial_value: "rule/switch9.txt"
+
+#Prefer IPV4 'A'-打开  'B'-关闭 
+  - tag: switch8
+    type: switch8
+    args:
+      initial_value: "rule/switch8.txt"
+
+#Prefer IPV6 'A'-打开  'B'-关闭 
+  - tag: switch10
+    type: switch10
+    args:
+      initial_value: "rule/switch10.txt"
+
+#是否使用阿里私有DOH 'A'-使用  'B'-不使用
+  - tag: switch11
+    type: switch11
+    args:
+      initial_value: "rule/switch11.txt"
+
+#是否使用运营商dns 'A'-使用  'B'-使用运营商dns
+  - tag: switch14
+    type: switch14
+    args:
+      initial_value: "rule/switch14.txt"
+
+#是否使用其它dns 'A'-使用  'B'-使用其它dns
+  - tag: switch15
+    type: switch15
+    args:
+      initial_value: "rule/switch15.txt"
+
+
+
+

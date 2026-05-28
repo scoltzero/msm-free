@@ -1,0 +1,48 @@
+#干掉V4请求，这些域名只有v6结果，不需要请求v4
+# 腾讯CDN (smtcdns.com & smtcdns.net - 48-char hex)
+regexp:^[0-9a-f]{48}\.[a-z0-9]+\.smtcdns\.com$
+regexp:^[0-9a-f]{48}\.[a-z0-9]+\.smtcdns\.net$
+
+# 腾讯P2P (ahdohpiechei.com - 32-char hex)
+regexp:^[0-9a-f]{32}\.ahdohpiechei\.com$
+
+# 腾讯P2P (homeborn.cn - IP-as-hostname)
+regexp:^([0-9a-f]{1,4}-){7}[0-9a-f]{1,4}-[0-9a-f]+\.erer\.homeborn\.cn$
+
+# 字节跳动CDN (bsgslb.cn - 固定长度59)
+# 注意: 已将长度修正为精确的 {59}
+regexp:^[a-z0-9]{40,60}\.tt\.x\.bsgslb\.cn$
+
+# 小米CDN (siomxity.net & siomxity.com - 固定长度59)
+# 注意: 已将长度修正为精确的 {59}
+regexp:^[a-z0-9]{40,60}\.siomxity\.(net|com)$
+
+# 阿里巴巴CDN (sealaly.net - 固定长度59)
+# 注意: 已将长度修正为精确的 {59}
+regexp:^[a-z0-9]{59}\.sealaly\.net$
+
+# 新增: 阿里巴巴/淘宝 CDN (tbcache.com - 固定长度52)
+regexp:^[a-z0-9]{40,60}\.mobgslb\.tbcache\.com$
+
+# HyperCacheNode CDN (hypercachenode.com - 固定长度43)
+# 注意: 已将长度修正为精确的 {43}
+regexp:^[a-z0-9]{43}\.hypercachenode\.com$
+
+# 新增: 字节跳动 P2P/CDN (IPv6-in-Hostname)
+regexp:^([0-9a-f]{1,4}_){7}[0-9a-f]{1,4}\.bytefcdnrd\.com$
+
+# 新增: ndcpp.com (IPv6优选)
+# 仅处理包含 -v6 的子域名，这是明确的强信号
+regexp:^.*-v6.*\.ndcpp\.com$
+
+# 新增: NexusEdgeIO (强制IPv6, 固定后缀)
+# 匹配42位动态部分 + 固定的 "888888" 后缀
+regexp:^[a-z0-9]{42}888888\.nexusedgeio\.com$
+
+# 下载类CDN (cdntips.net - 32-char MD5)
+regexp:^[0-9a-f]{32}\.dlied1\.cdntips\.net$
+
+regexp:^([0-9a-f]{1,4}-){7}[0-9a-f]{1,4}-[0-9a-f]+\.ldhy\.click$
+
+#抖音
+regexp:^240[0-9a-f]-.*\.free-lbv6\.idouyinvod\.com$

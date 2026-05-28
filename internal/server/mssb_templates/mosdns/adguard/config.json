@@ -1,0 +1,32 @@
+[
+  {
+    "id": "259df415-c0c9-402d-844e-37eec627e1c7",
+    "name": "httpdns",
+    "url": "https://raw.githubusercontent.com/yyysuo/firetv/refs/heads/master/httpdns.txt",
+    "enabled": true,
+    "auto_update": false,
+    "update_interval_hours": 24,
+    "rule_count": 64,
+    "last_updated": "2025-12-19T16:33:45.931421657+08:00"
+  },
+  {
+    "id": "60f0c53b-e140-4add-8f71-9a069fe94796",
+    "name": "pcdn1",
+    "url": "https://thhbdd.github.io/Block-pcdn-domains/ban.txt",
+    "enabled": true,
+    "auto_update": false,
+    "update_interval_hours": 24,
+    "rule_count": 20,
+    "last_updated": "2025-12-19T16:33:45.666214798+08:00"
+  },
+  {
+    "id": "caa59e00-10ff-410b-a908-eda46343b666",
+    "name": "pcdn2",
+    "url": "https://cdn.jsdelivr.net/gh/susetao/PCDNFilter-CHN-@main/PCDNFilter.txt",
+    "enabled": true,
+    "auto_update": false,
+    "update_interval_hours": 24,
+    "rule_count": 33,
+    "last_updated": "2025-12-19T16:33:45.646122908+08:00"
+  }
+]
