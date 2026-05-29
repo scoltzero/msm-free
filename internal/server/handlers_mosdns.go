@@ -105,6 +105,8 @@ func (a *App) handleMosDNSStatus(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleMosDNSOverview(w http.ResponseWriter, r *http.Request) {
 	st := a.Services.Status("mosdns")
+	entries := a.mosDNSQueryDataset(2000)
+	cache := mosDNSCacheSummary(entries)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
 		"service":       st,
 		"running":       st.Running,
@@ -113,8 +115,8 @@ func (a *App) handleMosDNSOverview(w http.ResponseWriter, r *http.Request) {
 		"switches":      a.mosDNSSwitchMap(),
 		"api_endpoint":  "http://127.0.0.1:9099",
 		"dns_listen":    ":53",
-		"query_count":   0,
-		"cache_entries": 0,
+		"query_count":   len(entries),
+		"cache_entries": cache["entries"],
 	}})
 }
 
@@ -124,10 +126,14 @@ func (a *App) handleMosDNSStats(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": data})
 		return
 	}
+	entries := a.mosDNSQueryDataset(5000)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"running":     a.Services.Status("mosdns").Running,
-		"query_count": 0,
-		"uptime":      0,
+		"running":        a.Services.Status("mosdns").Running,
+		"query_count":    len(entries),
+		"uptime":         a.Services.Status("mosdns").Uptime,
+		"audit":          mosDNSAuditStats(entries),
+		"cache":          mosDNSCacheSummary(entries),
+		"upstream_stats": mosDNSUpstreamStats(entries),
 	}})
 }
 
@@ -509,8 +515,9 @@ func (a *App) handleMosDNSSwitchesPut(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSQueryLog(w http.ResponseWriter, r *http.Request) {
-	lines := a.serviceLogLines("mosdns", queryInt(r, "lines", 300))
-	entries := mosDNSQueryEntries(lines)
+	lines := a.serviceLogLines("mosdns", queryInt(r, "lines", 1000))
+	entries := a.mosDNSQueryDataset(queryInt(r, "lines", 5000))
+	entries = filterMosDNSQueryEntries(entries, r)
 	page := queryInt(r, "page", 1)
 	limit := queryInt(r, "limit", len(entries))
 	if limit <= 0 {
@@ -545,39 +552,42 @@ func (a *App) handleMosDNSQueryLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSQueryMeta(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"domains": []any{}, "clients": []any{}, "types": []string{"A", "AAAA", "HTTPS"}, "query_types": []string{"A", "AAAA", "HTTPS"},
-		"rules": []any{}, "responses": []string{"NOERROR", "NXDOMAIN", "SERVFAIL"}, "response_codes": []string{"NOERROR", "NXDOMAIN", "SERVFAIL"},
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": mosDNSQueryMeta(a.mosDNSQueryDataset(5000))})
 }
 
 func (a *App) handleMosDNSRuleSets(w http.ResponseWriter, r *http.Request) {
-	nodes, _ := a.fileTree("configs/mosdns/rule", 2)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "rule_sets": nodes, "data": map[string]any{"rule_sets": nodes}})
+	sets := a.mosDNSRuleSets()
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "rule_sets": sets, "data": map[string]any{"rule_sets": sets}})
 }
 
 func (a *App) handleMosDNSAudit(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": []any{}})
+	entries := filterMosDNSQueryEntries(a.mosDNSQueryDataset(5000), r)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": entries, "total": len(entries)})
 }
 
 func (a *App) handleMosDNSAuditRank(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": []any{}, "ranks": []any{}})
+	entries := a.mosDNSQueryDataset(5000)
+	ranks := map[string]any{
+		"clients": mosDNSRank(entries, "client_ip", 20),
+		"domains": mosDNSRank(entries, "query_name", 20),
+		"rules":   mosDNSRank(entries, "domain_set", 20),
+		"types":   mosDNSRank(entries, "query_type", 20),
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": ranks, "ranks": ranks})
 }
 
 func (a *App) handleMosDNSAuditStats(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"total_queries": 0, "blocked_queries": 0, "top_clients": []any{}, "top_domains": []any{},
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": mosDNSAuditStats(a.mosDNSQueryDataset(5000))})
 }
 
 func (a *App) handleMosDNSCacheDetailed(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"summary": map[string]any{"entries": 0, "hit_rate": 0}, "caches": []any{},
+		"summary": mosDNSCacheSummary(a.mosDNSQueryDataset(5000)), "caches": mosDNSCacheRows(a.mosDNSQueryDataset(5000)),
 	}})
 }
 
 func (a *App) handleMosDNSUpstreamStats(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"upstreams": []any{}, "total": 0}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": mosDNSUpstreamStats(a.mosDNSQueryDataset(5000))})
 }
 
 func (a *App) handleMosDNSRoutingTask(w http.ResponseWriter, r *http.Request) {
@@ -666,8 +676,9 @@ func (a *App) handleMosDNSConfigFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSSystemCache(w http.ResponseWriter, r *http.Request) {
+	entries := a.mosDNSQueryDataset(5000)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"entries": 0, "memory": 0, "hit_rate": 0, "caches": []any{},
+		"entries": mosDNSCacheSummary(entries)["entries"], "memory": 0, "hit_rate": mosDNSCacheSummary(entries)["hit_rate"], "caches": mosDNSCacheRows(entries),
 	}})
 }
 
@@ -826,8 +837,12 @@ func (a *App) handleMosDNSRuleCategories(w http.ResponseWriter, r *http.Request)
 		{"greylist", "代理"},
 		{"blocklist", "拦截"},
 		{"direct_ip", "直连 IP"},
+		{"redirect", "重定向"},
 		{"rewrite", "重写"},
 		{"ddnslist", "DDNS"},
+		{"pcdnlist", "PCDN"},
+		{"adguard", "广告拦截"},
+		{"online", "在线分流"},
 	}
 	items := make([]map[string]any, 0, len(defs))
 	for _, def := range defs {
@@ -843,8 +858,14 @@ func (a *App) handleMosDNSRuleCategories(w http.ResponseWriter, r *http.Request)
 func mosDNSRuleCategoryFile(category string) string {
 	category = strings.TrimSpace(category)
 	switch category {
-	case "blacklist":
+	case "blacklist", "block", "deny":
 		category = "blocklist"
+	case "proxy":
+		category = "greylist"
+	case "direct", "allow":
+		category = "whitelist"
+	case "ddns":
+		category = "ddnslist"
 	case "":
 		category = "whitelist"
 	}
@@ -891,6 +912,8 @@ func (a *App) readMosDNSRuleItems(category string) []map[string]any {
 		items = append(items, map[string]any{
 			"id":         fmt.Sprintf("%s-%d", category, i+1),
 			"name":       value,
+			"content":    value,
+			"type":       category,
 			"pattern":    pattern,
 			"match_mode": mode,
 			"category":   category,
@@ -902,33 +925,7 @@ func (a *App) readMosDNSRuleItems(category string) []map[string]any {
 }
 
 func mosDNSQueryEntries(lines []string) []map[string]any {
-	entries := make([]map[string]any, 0, len(lines))
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		queryName := extractDomainLike(line)
-		if queryName == "" {
-			queryName = line
-		}
-		if len(queryName) > 180 {
-			queryName = queryName[:180]
-		}
-		entries = append(entries, map[string]any{
-			"trace_id":      fmt.Sprintf("log-%d", i+1),
-			"query_time":    time.Now().Add(time.Duration(i-len(lines)) * time.Second).Format(time.RFC3339),
-			"query_name":    queryName,
-			"client_ip":     "127.0.0.1",
-			"query_type":    "A",
-			"domain_set":    "unmatched_rule",
-			"response_code": "NOERROR",
-			"duration_ms":   0.0,
-			"answers":       []any{},
-			"raw":           line,
-		})
-	}
-	return entries
+	return parseMosDNSQueryEntries(lines)
 }
 
 func extractDomainLike(line string) string {

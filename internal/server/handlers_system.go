@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,6 +12,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func (a *App) handleMonitorSystem(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +33,7 @@ func (a *App) handleMonitorHardware(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleMonitorResources(w http.ResponseWriter, r *http.Request) {
 	mem := readMemInfo()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"cpu_percent":    0,
+		"cpu_percent":    sampleCPUPercent(),
 		"memory_total":   mem["MemTotal"],
 		"memory_free":    mem["MemAvailable"],
 		"memory_used":    mem["MemTotal"] - mem["MemAvailable"],
@@ -39,27 +43,63 @@ func (a *App) handleMonitorResources(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMonitorNetwork(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": localIPs()})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": localIPs(), "data": map[string]any{
+		"local_ips":  localIPs(),
+		"interfaces": readNetworkCounters(),
+	}})
 }
 
 func (a *App) handleMonitorHistory(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": []any{}})
+	mem := readMemInfo()
+	now := time.Now()
+	point := map[string]any{
+		"time":           now.Format(time.RFC3339),
+		"timestamp":      now.Unix(),
+		"cpu_percent":    sampleCPUPercent(),
+		"memory_percent": percent(mem["MemTotal"]-mem["MemAvailable"], mem["MemTotal"]),
+		"network":        readNetworkCounters(),
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": []any{point}})
 }
 
 func (a *App) handleMonitorStats(w http.ResponseWriter, r *http.Request) {
+	mem := readMemInfo()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"services": a.Services.List(), "resources": map[string]any{"goroutines": runtime.NumGoroutine()},
+		"services": a.Services.List(),
+		"resources": map[string]any{
+			"goroutines":     runtime.NumGoroutine(),
+			"cpu_percent":    sampleCPUPercent(),
+			"memory_total":   mem["MemTotal"],
+			"memory_used":    mem["MemTotal"] - mem["MemAvailable"],
+			"memory_percent": percent(mem["MemTotal"]-mem["MemAvailable"], mem["MemTotal"]),
+		},
+		"network": readNetworkCounters(),
 	}})
 }
 
 func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
+	configDirOK := dirReadable(filepath.Join(a.DataDir, "configs"))
+	configFiles := a.validateConfigFiles()
+	deps := dependencyChecks()
+	ports := diagnosticPortRows()
+	disk := diskUsage(a.DataDir)
+	diskOK := diskHealthy(disk)
+	permissionsOK := dirWritable(a.DataDir) && dirWritable(filepath.Join(a.DataDir, "logs")) && dirWritable(filepath.Join(a.DataDir, "configs"))
 	checks := []map[string]any{
-		{"name": "root", "ok": os.Geteuid() == 0, "message": "root is required for port 53 and nftables"},
-		{"name": "mihomo", "ok": a.Services.Status("mihomo").Installed},
-		{"name": "mosdns", "ok": a.Services.Status("mosdns").Installed},
-		{"name": "nftables_config", "ok": fileExists(a.DataDir + "/configs/network/network.nft")},
+		{"name": "配置目录", "key": "config_dir", "ok": configDirOK, "message": boolMessage(configDirOK, "配置目录存在且可访问", "配置目录缺失或不可访问"), "details": filepath.Join(a.DataDir, "configs")},
+		{"name": "配置文件", "key": "config_files", "ok": configFiles["ok"], "message": configFiles["message"], "details": configFiles["details"]},
+		{"name": "依赖项", "key": "dependencies", "ok": deps["ok"], "message": deps["message"], "details": deps["details"]},
+		{"name": "端口占用", "key": "ports", "ok": true, "message": fmt.Sprintf("已检查 %d 个端口", len(ports)), "details": ports},
+		{"name": "磁盘空间", "key": "disk", "ok": diskOK, "message": boolMessage(diskOK, "磁盘空间充足", "磁盘空间不足或无法读取"), "details": disk},
+		{"name": "文件权限", "key": "permissions", "ok": permissionsOK, "message": boolMessage(permissionsOK, "具有必要的读写权限", "缺少必要的读写权限"), "details": map[string]any{"data_dir": a.DataDir}},
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "checks": checks})
+	summary := diagnosticSummary(checks)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "checks": checks, "summary": summary, "data": map[string]any{
+		"checks":  checks,
+		"summary": summary,
+		"ports":   ports,
+		"system":  map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "go_version": runtime.Version(), "cpu_cores": runtime.NumCPU(), "pid": os.Getpid(), "is_root": os.Geteuid() == 0},
+	}})
 }
 
 func (a *App) handleNetworkInfo(w http.ResponseWriter, r *http.Request) {
@@ -245,4 +285,97 @@ func percent(used, total uint64) float64 {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func dirReadable(path string) bool {
+	entries, err := os.ReadDir(path)
+	return err == nil && entries != nil
+}
+
+func dirWritable(path string) bool {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return false
+	}
+	tmp := filepath.Join(path, ".msm-free-write-test")
+	if err := os.WriteFile(tmp, []byte("ok"), 0644); err != nil {
+		return false
+	}
+	_ = os.Remove(tmp)
+	return true
+}
+
+func (a *App) validateConfigFiles() map[string]any {
+	root := filepath.Join(a.DataDir, "configs")
+	total := 0
+	errors := []map[string]string{}
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".yaml" && ext != ".yml" && ext != ".json" {
+			return nil
+		}
+		total++
+		b, err := os.ReadFile(path)
+		if err != nil {
+			errors = append(errors, map[string]string{"path": path, "error": err.Error()})
+			return nil
+		}
+		var decoded any
+		if ext == ".json" {
+			err = json.Unmarshal(b, &decoded)
+		} else {
+			err = yaml.Unmarshal(b, &decoded)
+		}
+		if err != nil {
+			errors = append(errors, map[string]string{"path": path, "error": err.Error()})
+		}
+		return nil
+	})
+	ok := len(errors) == 0
+	return map[string]any{"ok": ok, "message": boolMessage(ok, "配置文件有效", fmt.Sprintf("发现 %d 个配置错误", len(errors))), "details": map[string]any{"total": total, "errors": errors}}
+}
+
+func dependencyChecks() map[string]any {
+	names := []string{"nft", "ip", "curl", "tar", "unzip", "gzip"}
+	var details []map[string]any
+	okCount := 0
+	for _, name := range names {
+		path, err := exec.LookPath(name)
+		ok := err == nil
+		if ok {
+			okCount++
+		}
+		details = append(details, map[string]any{"name": name, "ok": ok, "path": path})
+	}
+	allOK := okCount == len(names)
+	return map[string]any{"ok": allOK, "message": fmt.Sprintf("依赖检查通过 %d/%d", okCount, len(names)), "details": details}
+}
+
+func diagnosticSummary(checks []map[string]any) map[string]any {
+	passed := 0
+	failed := 0
+	warnings := 0
+	for _, check := range checks {
+		if check["ok"] == true {
+			passed++
+		} else {
+			failed++
+		}
+	}
+	total := len(checks)
+	return map[string]any{"total": total, "passed": passed, "failed": failed, "warnings": warnings, "pass_rate": percent(uint64(passed), uint64(total))}
+}
+
+func boolMessage(ok bool, good, bad string) string {
+	if ok {
+		return good
+	}
+	return bad
+}
+
+func diskHealthy(disk map[string]any) bool {
+	value, ok := disk["percent"].(float64)
+	return disk["ok"] == true && ok && value < 95
 }

@@ -4,9 +4,11 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -43,8 +45,7 @@ func (a *App) installComponent(component string, emit func(DownloadEvent)) error
 		return fmt.Errorf("unknown component %s", component)
 	}
 	if _, err := os.Stat(target); err == nil {
-		emit(DownloadEvent{Status: "skipped", Progress: 100, Message: component + " already installed"})
-		return nil
+		emit(DownloadEvent{Status: "running", Progress: 5, Message: component + " already installed; refreshing files"})
 	}
 	url := componentDownloadURL(component)
 	if url == "" {
@@ -53,7 +54,7 @@ func (a *App) installComponent(component string, emit func(DownloadEvent)) error
 	emit(DownloadEvent{Status: "running", Progress: 5, Message: "downloading " + url})
 	tmp := filepath.Join(a.DataDir, "data", component+".download")
 	_ = os.Remove(tmp)
-	if err := downloadFile(url, tmp); err != nil {
+	if err := a.downloadFile(url, tmp, emit); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
@@ -86,12 +87,13 @@ func (a *App) componentTarget(component string) string {
 	}
 }
 
-func downloadFile(url, dest string) error {
+func (a *App) downloadFile(rawURL, dest string, emit func(DownloadEvent)) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
 	}
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	finalURL := a.rewriteDownloadURL(rawURL)
+	client := a.downloadHTTPClient()
+	resp, err := client.Get(finalURL)
 	if err != nil {
 		return err
 	}
@@ -104,8 +106,85 @@ func downloadFile(url, dest string) error {
 		return err
 	}
 	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
+	var written int64
+	total := resp.ContentLength
+	buf := make([]byte, 128*1024)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, err := out.Write(buf[:n]); err != nil {
+				return err
+			}
+			written += int64(n)
+			if emit != nil && total > 0 {
+				progress := 5 + int(float64(written)*50/float64(total))
+				if progress > 55 {
+					progress = 55
+				}
+				emit(DownloadEvent{Status: "running", Progress: progress, Message: fmt.Sprintf("downloaded %d/%d bytes", written, total)})
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+	return nil
+}
+
+func downloadFile(rawURL, dest string) error {
+	app := &App{}
+	return app.downloadFile(rawURL, dest, nil)
+}
+
+func (a *App) downloadHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if a != nil && a.DB != nil {
+		if proxy := a.downloadProxyURL(); proxy != nil {
+			transport.Proxy = http.ProxyURL(proxy)
+		}
+	}
+	return &http.Client{Timeout: 10 * time.Minute, Transport: transport}
+}
+
+func (a *App) downloadProxyURL() *url.URL {
+	var enabled bool
+	var httpsProxy, httpProxy sql.NullString
+	err := a.DB.QueryRow(`select github_proxy_enabled,github_https_proxy,github_http_proxy from system_setups order by id desc limit 1`).Scan(&enabled, &httpsProxy, &httpProxy)
+	if err != nil || !enabled {
+		return nil
+	}
+	raw := strings.TrimSpace(httpsProxy.String)
+	if raw == "" {
+		raw = strings.TrimSpace(httpProxy.String)
+	}
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" {
+		return nil
+	}
+	return u
+}
+
+func (a *App) rewriteDownloadURL(raw string) string {
+	if a == nil || a.DB == nil || !strings.Contains(raw, "github.com/") {
+		return raw
+	}
+	var enabled bool
+	var accelerator sql.NullString
+	err := a.DB.QueryRow(`select github_accelerator_enabled,github_accelerator_url from system_setups order by id desc limit 1`).Scan(&enabled, &accelerator)
+	if err != nil || !enabled {
+		return raw
+	}
+	prefix := strings.TrimRight(strings.TrimSpace(accelerator.String), "/")
+	if prefix == "" {
+		return raw
+	}
+	return prefix + "/" + raw
 }
 
 func untarGz(src, dest string) error {

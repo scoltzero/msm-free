@@ -241,6 +241,102 @@ func (a *App) requireAdmin(r *http.Request) bool {
 	return u != nil && u.Role == "admin"
 }
 
+func (a *App) authorizeRequest(u *User, r *http.Request) bool {
+	if u == nil || !u.IsActive {
+		return false
+	}
+	role := strings.ToLower(strings.TrimSpace(u.Role))
+	if role == "" {
+		role = "guest"
+	}
+	if role == "admin" {
+		return true
+	}
+	path := r.URL.Path
+	method := r.Method
+	if path == "/api/v1/auth/me" || path == "/api/v1/profile" || path == "/api/v1/profile/password" {
+		return true
+	}
+	if strings.HasPrefix(path, "/api/v1/api-tokens") {
+		return role != "guest"
+	}
+	if role == "operator" {
+		return operatorAllows(method, path)
+	}
+	if role == "viewer" {
+		return viewerAllows(method, path)
+	}
+	if role == "guest" {
+		return guestAllows(method, path)
+	}
+	return false
+}
+
+func operatorAllows(method, path string) bool {
+	deniedPrefixes := []string{
+		"/api/v1/users",
+		"/api/v1/settings",
+		"/api/v1/setup/reset",
+		"/api/v1/license-activation/activate",
+		"/api/v1/license-activation/deactivate",
+		"/api/v1/license-activation/refresh",
+	}
+	for _, prefix := range deniedPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return false
+		}
+	}
+	if strings.HasPrefix(path, "/api/v1/history/") && (method == http.MethodPost || method == http.MethodDelete) {
+		return false
+	}
+	return true
+}
+
+func viewerAllows(method, path string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	deniedPrefixes := []string{
+		"/api/v1/users",
+		"/api/v1/settings",
+		"/api/v1/logs",
+		"/api/v1/events/logs",
+		"/api/v1/mosdns/logs",
+		"/api/v1/mosdns/query-log",
+		"/api/v1/mosdns/query-logs",
+		"/api/v1/mosdns/audit",
+	}
+	for _, prefix := range deniedPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return false
+		}
+	}
+	return strings.HasPrefix(path, "/api/v1/version") ||
+		strings.HasPrefix(path, "/api/v1/monitor") ||
+		strings.HasPrefix(path, "/api/v1/services") ||
+		strings.HasPrefix(path, "/api/v1/config") ||
+		strings.HasPrefix(path, "/api/v1/history") ||
+		strings.HasPrefix(path, "/api/v1/mosdns") ||
+		strings.HasPrefix(path, "/api/v1/mihomo") ||
+		strings.HasPrefix(path, "/api/v1/network/info") ||
+		strings.HasPrefix(path, "/api/v1/netlink/nftables/status") ||
+		strings.HasPrefix(path, "/api/v1/system/diagnostics") ||
+		strings.HasPrefix(path, "/api/v1/update") ||
+		strings.HasPrefix(path, "/api/v1/component-updates")
+}
+
+func guestAllows(method, path string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	return path == "/api/v1/version" ||
+		path == "/api/v1/auth/me" ||
+		path == "/api/v1/profile" ||
+		path == "/api/v1/monitor/system" ||
+		path == "/api/v1/monitor/hardware" ||
+		path == "/api/v1/license-activation/status"
+}
+
 func withUser(ctx context.Context, u *User) context.Context {
 	return context.WithValue(ctx, userContextKey{}, u)
 }

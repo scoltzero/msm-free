@@ -23,7 +23,7 @@ Then open `http://localhost:7777`.
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.1/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.2/msm-free-linux-amd64.tar.gz
 tar -xzf msm-free-linux-amd64.tar.gz -C /tmp
 sudo /tmp/msm-free-*-linux-amd64/install.sh
 ```
@@ -50,7 +50,7 @@ Persistent Unraid data defaults to `/mnt/user/appdata/msm-free`.
 
 ```bash
 make build
-make unraid VERSION=0.1.1 UNRAID_VERSION=0.1.1 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.1
+make unraid VERSION=0.1.2 UNRAID_VERSION=0.1.2 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.2
 ```
 
 The generated artifacts are:

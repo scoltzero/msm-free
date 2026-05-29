@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -408,7 +409,96 @@ func (a *App) handleHistoryDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleHistoryCompare(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "diff": "", "message": "diff view placeholder"})
+	leftID := firstNonEmpty(r.URL.Query().Get("from"), r.URL.Query().Get("left"), r.URL.Query().Get("id1"))
+	rightID := firstNonEmpty(r.URL.Query().Get("to"), r.URL.Query().Get("right"), r.URL.Query().Get("id2"))
+	leftContent, leftLabel := a.historyContentForCompare(leftID, r.URL.Query().Get("path"))
+	rightContent, rightLabel := a.historyContentForCompare(rightID, r.URL.Query().Get("path"))
+	diff := simpleUnifiedDiff(leftLabel, rightLabel, leftContent, rightContent)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "diff": diff, "data": map[string]any{"diff": diff, "left": leftLabel, "right": rightLabel}})
+}
+
+func (a *App) handleConfigBackup(w http.ResponseWriter, r *http.Request) {
+	root := filepath.Join(a.DataDir, "configs")
+	b, err := zipDir(root)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "backup_failed", err.Error())
+		return
+	}
+	name := "configs-" + time.Now().Format("20060102-150405") + ".zip"
+	rel := filepath.ToSlash(filepath.Join("backups", name))
+	path, err := a.safePath(rel)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		writeError(w, http.StatusInternalServerError, "mkdir_failed", err.Error())
+		return
+	}
+	if err := os.WriteFile(path, b, 0644); err != nil {
+		writeError(w, http.StatusInternalServerError, "backup_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"name": name, "path": rel, "size": len(b), "created_at": nowString()}})
+}
+
+func (a *App) handleConfigBackups(w http.ResponseWriter, r *http.Request) {
+	dir, err := a.safePath("backups")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	entries, _ := os.ReadDir(dir)
+	var rows []map[string]any
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".zip") {
+			continue
+		}
+		info, _ := entry.Info()
+		rows = append(rows, map[string]any{"name": entry.Name(), "path": filepath.ToSlash(filepath.Join("backups", entry.Name())), "size": info.Size(), "created_at": info.ModTime().Format(time.RFC3339)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": rows, "backups": rows})
+}
+
+func (a *App) handleConfigBackupDownload(w http.ResponseWriter, r *http.Request) {
+	name := filepath.Base(firstNonEmpty(r.URL.Query().Get("name"), r.URL.Query().Get("path")))
+	if name == "." || name == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "backup name required")
+		return
+	}
+	path, err := a.safePath(filepath.ToSlash(filepath.Join("backups", name)))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	w.Header().Set("Content-Disposition", "attachment; filename="+name)
+	serveLocalFile(w, r, path)
+}
+
+func (a *App) handleConfigRestore(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	name := filepath.Base(firstNonEmpty(req.Name, req.Path))
+	if name == "." || name == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "backup name required")
+		return
+	}
+	src, err := a.safePath(filepath.ToSlash(filepath.Join("backups", name)))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	if err := restoreZipToDir(src, filepath.Join(a.DataDir, "configs")); err != nil {
+		writeError(w, http.StatusBadRequest, "restore_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"restored": name}})
 }
 
 func zipDir(root string) ([]byte, error) {
@@ -438,6 +528,105 @@ func zipDir(root string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func restoreZipToDir(src, dest string) error {
+	zr, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+	cleanDest, err := filepath.Abs(dest)
+	if err != nil {
+		return err
+	}
+	for _, file := range zr.File {
+		name := filepath.Clean(filepath.ToSlash(file.Name))
+		if name == "." || strings.HasPrefix(name, "../") || filepath.IsAbs(name) {
+			continue
+		}
+		target := filepath.Join(cleanDest, filepath.FromSlash(name))
+		absTarget, err := filepath.Abs(target)
+		if err != nil || (!strings.HasPrefix(absTarget, cleanDest+string(os.PathSeparator)) && absTarget != cleanDest) {
+			continue
+		}
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(absTarget, file.FileInfo().Mode()); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
+			return err
+		}
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(absTarget, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.FileInfo().Mode())
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, copyErr := io.Copy(out, rc)
+		rc.Close()
+		out.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+	}
+	return nil
+}
+
+func (a *App) historyContentForCompare(id, path string) (string, string) {
+	if strings.TrimSpace(id) != "" {
+		var content, filePath string
+		if err := a.DB.QueryRow(`select content,file_path from config_histories where id=?`, id).Scan(&content, &filePath); err == nil {
+			return content, "history:" + id + ":" + filePath
+		}
+	}
+	path = normalizeConfigRel(path)
+	if path == "" {
+		return "", "empty"
+	}
+	content, _ := a.readTextFile(path)
+	return content, "current:" + path
+}
+
+func simpleUnifiedDiff(leftLabel, rightLabel, left, right string) string {
+	leftLines := strings.Split(left, "\n")
+	rightLines := strings.Split(right, "\n")
+	var out strings.Builder
+	out.WriteString("--- " + leftLabel + "\n")
+	out.WriteString("+++ " + rightLabel + "\n")
+	headerLen := out.Len()
+	max := len(leftLines)
+	if len(rightLines) > max {
+		max = len(rightLines)
+	}
+	for i := 0; i < max; i++ {
+		var l, r string
+		if i < len(leftLines) {
+			l = leftLines[i]
+		}
+		if i < len(rightLines) {
+			r = rightLines[i]
+		}
+		if l == r {
+			continue
+		}
+		out.WriteString(fmt.Sprintf("@@ line %d @@\n", i+1))
+		if i < len(leftLines) {
+			out.WriteString("-" + l + "\n")
+		}
+		if i < len(rightLines) {
+			out.WriteString("+" + r + "\n")
+		}
+	}
+	if out.Len() == headerLen {
+		out.WriteString(" no changes\n")
+	}
+	return out.String()
 }
 
 func normalizeConfigRel(rel string) string {

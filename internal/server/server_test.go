@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
@@ -127,6 +129,89 @@ func TestLicenseStatusIsFreeUnlocked(t *testing.T) {
 	}
 }
 
+func TestMosDNSObservabilityAndRuleCategories(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	lines := []string{
+		`{"query_name":"chatgpt.com","client_ip":"192.168.10.223","query_type":"A","domain_set":"my_fakeiprule","response_code":"NOERROR","duration_ms":0.08,"answers":["A: 28.0.0.218"]}`,
+		`client_ip=192.168.10.235 query_name=google.com qtype=A rule=unmatched_rule rcode=NOERROR A: 142.250.192.142 (TTL: 5s) 0.06ms`,
+		`client_ip=192.168.10.223 query_name=www.google.com qtype=HTTPS rule=BANHTTPS rcode=NOERROR 0.01ms`,
+	}
+	entries := mosDNSQueryEntries(lines)
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+	meta := mosDNSQueryMeta(entries)
+	if !containsString(meta["query_types"].([]string), "HTTPS") {
+		t.Fatalf("meta missing HTTPS: %#v", meta)
+	}
+	stats := mosDNSAuditStats(entries)
+	if stats["fakeip_queries"].(int) == 0 || stats["blocked_queries"].(int) == 0 {
+		t.Fatalf("stats should include fakeip and blocked queries: %#v", stats)
+	}
+	cache := mosDNSCacheSummary(entries)
+	if cache["entries"].(int) == 0 {
+		t.Fatalf("cache summary should include fakeip answer: %#v", cache)
+	}
+	res := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/rules/categories", token, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("categories status=%d body=%s", res.Code, res.Body.String())
+	}
+	for _, want := range []string{"redirect", "adguard", "online"} {
+		if !strings.Contains(res.Body.String(), want) {
+			t.Fatalf("categories missing %s: %s", want, res.Body.String())
+		}
+	}
+}
+
+func TestRolePermissionsMatchMSMModel(t *testing.T) {
+	app := newTestApp(t)
+	operator := tokenForRole(t, app, "operator")
+	viewer := tokenForRole(t, app, "viewer")
+	guest := tokenForRole(t, app, "guest")
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/settings", operator, map[string]string{"theme": "dark"}); res.Code != http.StatusForbidden {
+		t.Fatalf("operator should not update settings, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/monitor/system", viewer, nil); res.Code != http.StatusOK {
+		t.Fatalf("viewer should read monitor, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", viewer, map[string]string{"path": "configs/mihomo/config.yaml", "content": ""}); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not update config, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/logs/mihomo", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not read logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/services", guest, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("guest should not read service status, status=%d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestConfigCompareBackupAndDiagnostics(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	create := requestJSON(t, app, http.MethodPost, "/api/v1/history", token, map[string]any{"path": "configs/mihomo/config.yaml", "content": "a: 1\n", "comment": "old"})
+	if create.Code != http.StatusCreated {
+		t.Fatalf("history create status=%d body=%s", create.Code, create.Body.String())
+	}
+	if err := app.writeTextFile("configs/mihomo/config.yaml", "a: 2\n"); err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(create.Body.Bytes(), &body)
+	compare := requestJSON(t, app, http.MethodGet, "/api/v1/history/compare?from="+strconvID(body["id"])+"&path=configs/mihomo/config.yaml", token, nil)
+	if compare.Code != http.StatusOK || !strings.Contains(compare.Body.String(), "-a: 1") || !strings.Contains(compare.Body.String(), "+a: 2") {
+		t.Fatalf("compare did not return useful diff: status=%d body=%s", compare.Code, compare.Body.String())
+	}
+	backup := requestJSON(t, app, http.MethodPost, "/api/v1/config/backup", token, map[string]any{})
+	if backup.Code != http.StatusOK || !strings.Contains(backup.Body.String(), ".zip") {
+		t.Fatalf("backup status=%d body=%s", backup.Code, backup.Body.String())
+	}
+	diag := requestJSON(t, app, http.MethodGet, "/api/v1/system/diagnostics", token, nil)
+	if diag.Code != http.StatusOK || !strings.Contains(diag.Body.String(), "配置目录") || !strings.Contains(diag.Body.String(), "端口占用") {
+		t.Fatalf("diagnostics incomplete: status=%d body=%s", diag.Code, diag.Body.String())
+	}
+}
+
 func newTestApp(t *testing.T) *App {
 	t.Helper()
 	app, err := New(Options{DataDir: t.TempDir(), Version: "test"})
@@ -138,6 +223,47 @@ func newTestApp(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	return app
+}
+
+func tokenForRole(t *testing.T, app *App, role string) string {
+	t.Helper()
+	now := time.Now()
+	res, err := app.DB.Exec(`insert into users(username,password,role,is_active,created_at,updated_at) values(?,?,?,?,?,?)`, role+"_user", "x", role, true, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _ := res.LastInsertId()
+	u, err := app.userByID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := app.makeToken(u, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+func strconvID(v any) string {
+	switch x := v.(type) {
+	case float64:
+		return strconv.Itoa(int(x))
+	case int:
+		return strconv.Itoa(x)
+	case string:
+		return x
+	default:
+		return ""
+	}
 }
 
 func requestJSON(t *testing.T, app *App, method, path, token string, body any) *httptest.ResponseRecorder {

@@ -62,7 +62,11 @@ func (sm *ServiceManager) Status(name string) ServiceStatus {
 		status.Running = true
 		status.PID = pid
 		status.Status = "running"
-		if info, err := os.Stat(spec.PIDFile); err == nil {
+		if metrics, ok := processResourceSnapshot(pid); ok {
+			status.Uptime = metrics.Uptime
+			status.Memory = metrics.Memory
+			status.CPU = metrics.CPU
+		} else if info, err := os.Stat(spec.PIDFile); err == nil {
 			status.Uptime = int64(time.Since(info.ModTime()).Seconds())
 		}
 		return status

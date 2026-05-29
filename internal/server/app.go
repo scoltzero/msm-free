@@ -132,6 +132,10 @@ func (a *App) withCommonMiddleware(next http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
 				return
 			}
+			if !a.authorizeRequest(user, r) {
+				writeError(w, http.StatusForbidden, "forbidden", "当前角色没有执行该操作的权限")
+				return
+			}
 			r = r.WithContext(context.WithValue(r.Context(), userContextKey{}, user))
 		}
 		next.ServeHTTP(w, r)
@@ -230,6 +234,10 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/config/validate", a.handleConfigValidate)
 	mux.HandleFunc("GET /api/v1/config/download", a.handleConfigDownload)
 	mux.HandleFunc("POST /api/v1/config/upload", a.handleConfigUpload)
+	mux.HandleFunc("GET /api/v1/config/backups", a.handleConfigBackups)
+	mux.HandleFunc("POST /api/v1/config/backup", a.handleConfigBackup)
+	mux.HandleFunc("GET /api/v1/config/backup/download", a.handleConfigBackupDownload)
+	mux.HandleFunc("POST /api/v1/config/restore", a.handleConfigRestore)
 
 	mux.HandleFunc("GET /api/v1/history", a.handleHistory)
 	mux.HandleFunc("POST /api/v1/history", a.handleHistoryCreate)

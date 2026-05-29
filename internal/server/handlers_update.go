@@ -2,9 +2,13 @@ package server
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -14,9 +18,9 @@ func (a *App) registerUpdateRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/update/config", a.handleUpdateConfig)
 	mux.HandleFunc("PUT /api/v1/update/config", a.handleUpdateConfigPut)
 	mux.HandleFunc("GET /api/v1/update/releases", a.handleUpdateReleases)
-	mux.HandleFunc("POST /api/v1/update/download", a.handleUpdateNoop)
-	mux.HandleFunc("POST /api/v1/update/install", a.handleUpdateNoop)
-	mux.HandleFunc("POST /api/v1/update/cancel", a.handleUpdateNoop)
+	mux.HandleFunc("POST /api/v1/update/download", a.handleUpdateDownload)
+	mux.HandleFunc("POST /api/v1/update/install", a.handleUpdateInstall)
+	mux.HandleFunc("POST /api/v1/update/cancel", a.handleUpdateCancel)
 
 	mux.HandleFunc("GET /api/v1/component-updates", a.handleComponentUpdates)
 	mux.HandleFunc("GET /api/v1/component-updates/{component}", a.handleComponentUpdateStatus)
@@ -28,6 +32,11 @@ func (a *App) registerUpdateRoutes(mux *http.ServeMux) {
 }
 
 func (a *App) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	item := a.selfUpdateState()
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": item})
+}
+
+func (a *App) selfUpdateState() map[string]any {
 	item := map[string]any{
 		"component":       "msm-free",
 		"current_version": a.Version,
@@ -35,19 +44,52 @@ func (a *App) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 		"has_update":      false,
 		"status":          "idle",
 		"progress":        0,
-		"release_notes":   "msm-free 自更新接口已预留，首版请使用发布包覆盖升级。",
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": item})
+	row := a.DB.QueryRow(`select current_version,latest_version,has_update,status,progress,coalesce(error_message,''),coalesce(download_url,''),coalesce(release_notes,''),last_check_time from update_info where component='msm-free' order by id desc limit 1`)
+	var current, latest, status, errText, downloadURL, notes string
+	var hasUpdate bool
+	var progress int
+	var last sql.NullTime
+	if err := row.Scan(&current, &latest, &hasUpdate, &status, &progress, &errText, &downloadURL, &notes, &last); err == nil {
+		item["current_version"] = current
+		item["latest_version"] = latest
+		item["has_update"] = hasUpdate
+		item["status"] = status
+		item["progress"] = progress
+		item["error_message"] = errText
+		item["download_url"] = downloadURL
+		item["release_notes"] = notes
+		if last.Valid {
+			item["last_check_time"] = last.Time
+		}
+	}
+	return item
 }
 
 func (a *App) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	release, err := a.fetchLatestRelease("scoltzero", "msm-free")
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": a.selfUpdateState()})
+		return
+	}
+	downloadURL := releaseAssetURL(release, "linux-amd64", ".tar.gz")
+	hasUpdate := versionDifferent(a.Version, release.TagName)
+	now := time.Now()
+	_, _ = a.DB.Exec(`insert into update_info(component,current_version,latest_version,has_update,status,progress,error_message,download_url,release_notes,last_check_time,created_at,updated_at)
+		values('msm-free',?,?,?,?,?,?,?,?,?,?,?)
+		on conflict(id) do nothing`,
+		a.Version, release.TagName, hasUpdate, "checked", 0, "", downloadURL, release.Body, now, now, now)
+	_, _ = a.DB.Exec(`update update_info set current_version=?,latest_version=?,has_update=?,status='checked',progress=0,error_message='',download_url=?,release_notes=?,last_check_time=?,updated_at=? where component='msm-free'`,
+		a.Version, release.TagName, hasUpdate, downloadURL, release.Body, now, now)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
 		"component":       "msm-free",
 		"current_version": a.Version,
-		"latest_version":  a.Version,
-		"has_update":      false,
+		"latest_version":  release.TagName,
+		"has_update":      hasUpdate,
+		"download_url":    downloadURL,
+		"release_notes":   release.Body,
 		"status":          "checked",
-		"last_check_time": time.Now(),
+		"last_check_time": now,
 	}})
 }
 
@@ -64,11 +106,51 @@ func (a *App) handleUpdateConfigPut(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleUpdateReleases(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": []any{}})
+	releases, err := a.fetchReleases("scoltzero", "msm-free")
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": []any{}})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": releases})
 }
 
-func (a *App) handleUpdateNoop(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "message": "self update is not enabled in this build"})
+func (a *App) handleUpdateDownload(w http.ResponseWriter, r *http.Request) {
+	state := a.selfUpdateState()
+	rawURL := strings.TrimSpace(fmt.Sprint(state["download_url"]))
+	if rawURL == "" {
+		release, err := a.fetchLatestRelease("scoltzero", "msm-free")
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": state})
+			return
+		}
+		rawURL = releaseAssetURL(release, "linux-amd64", ".tar.gz")
+	}
+	if rawURL == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": "no linux-amd64 release asset found", "data": state})
+		return
+	}
+	dest := filepath.Join(a.DataDir, "data", "updates", filepath.Base(rawURL))
+	last := DownloadEvent{Status: "running", Progress: 5, Message: "starting"}
+	err := a.downloadFile(rawURL, dest, func(ev DownloadEvent) {
+		last = ev
+		_, _ = a.DB.Exec(`update update_info set status='downloading',progress=?,error_message='',updated_at=? where component='msm-free'`, ev.Progress, nowString())
+	})
+	if err != nil {
+		_, _ = a.DB.Exec(`update update_info set status='failed',progress=?,error_message=?,updated_at=? where component='msm-free'`, last.Progress, err.Error(), nowString())
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": a.selfUpdateState()})
+		return
+	}
+	_, _ = a.DB.Exec(`update update_info set status='downloaded',progress=100,error_message='',download_url=?,updated_at=? where component='msm-free'`, rawURL, nowString())
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"path": dest, "event": last}})
+}
+
+func (a *App) handleUpdateInstall(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "message": "更新包已下载后可由安装脚本或 Unraid 插件覆盖当前二进制；运行中的进程不做热替换。", "data": a.selfUpdateState()})
+}
+
+func (a *App) handleUpdateCancel(w http.ResponseWriter, r *http.Request) {
+	_, _ = a.DB.Exec(`update update_info set status='idle',progress=0,updated_at=? where component='msm-free'`, nowString())
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.selfUpdateState()})
 }
 
 func (a *App) handleComponentUpdates(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +170,12 @@ func (a *App) handleComponentUpdateStatus(w http.ResponseWriter, r *http.Request
 func (a *App) handleComponentUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	component := normalizeComponent(r.PathValue("component"))
 	state := a.componentUpdateState(component)
+	if remote, err := a.componentRemoteInfo(component); err == nil {
+		state["latest_version"] = remote.TagName
+		state["download_url"] = firstNonEmpty(releaseAssetURL(remote, component, ""), componentDownloadURL(component))
+		state["release_body"] = remote.Body
+		state["has_update"] = versionDifferent(fmt.Sprint(state["current_version"]), remote.TagName)
+	}
 	state["last_check_time"] = time.Now()
 	_, _ = a.DB.Exec(`insert into component_update_info(component,current_version,latest_version,has_update,download_url,status,progress,last_check_time,created_at,updated_at)
 		values(?,?,?,?,?,?,?,?,?,?)
@@ -185,6 +273,23 @@ func (a *App) componentUpdateState(component string) map[string]any {
 	return state
 }
 
+func (a *App) componentRemoteInfo(component string) (githubRelease, error) {
+	switch normalizeComponent(component) {
+	case "mosdns":
+		return a.fetchReleaseByTag("baozaodetudou", "mssb", "mosdns")
+	case "mihomo":
+		return a.fetchReleaseByTag("baozaodetudou", "mssb", "mihomo")
+	case "zashboard":
+		commit, err := a.fetchGitHubCommit("Zephyruso", "zashboard", "gh-pages")
+		if err != nil {
+			return githubRelease{}, err
+		}
+		return githubRelease{TagName: "gh-pages-" + shortSHA(commit.SHA), Name: "zashboard gh-pages", Body: commit.Commit.Message, Assets: []githubAsset{{Name: "gh-pages.zip", BrowserDownloadURL: componentDownloadURL("zashboard")}}}, nil
+	default:
+		return githubRelease{}, fmt.Errorf("unknown component %s", component)
+	}
+}
+
 func (a *App) componentUpdateConfig(component string) map[string]any {
 	out := map[string]any{"component": component, "auto_check": true, "check_interval": 86400, "auto_update": false}
 	var autoCheck, autoUpdate bool
@@ -229,4 +334,100 @@ func normalizeComponent(component string) string {
 	default:
 		return component
 	}
+}
+
+type githubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+type githubRelease struct {
+	TagName     string        `json:"tag_name"`
+	Name        string        `json:"name"`
+	Body        string        `json:"body"`
+	HTMLURL     string        `json:"html_url"`
+	PublishedAt time.Time     `json:"published_at"`
+	Assets      []githubAsset `json:"assets"`
+}
+
+type githubCommit struct {
+	SHA    string `json:"sha"`
+	Commit struct {
+		Message string `json:"message"`
+	} `json:"commit"`
+}
+
+func (a *App) fetchLatestRelease(owner, repo string) (githubRelease, error) {
+	var release githubRelease
+	err := a.fetchGitHubJSON(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo), &release)
+	return release, err
+}
+
+func (a *App) fetchReleaseByTag(owner, repo, tag string) (githubRelease, error) {
+	var release githubRelease
+	err := a.fetchGitHubJSON(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, tag), &release)
+	return release, err
+}
+
+func (a *App) fetchReleases(owner, repo string) ([]githubRelease, error) {
+	var releases []githubRelease
+	err := a.fetchGitHubJSON(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=20", owner, repo), &releases)
+	return releases, err
+}
+
+func (a *App) fetchGitHubCommit(owner, repo, ref string) (githubCommit, error) {
+	var commit githubCommit
+	err := a.fetchGitHubJSON(fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref), &commit)
+	return commit, err
+}
+
+func (a *App) fetchGitHubJSON(rawURL string, dst any) error {
+	req, err := http.NewRequest(http.MethodGet, a.rewriteDownloadURL(rawURL), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "msm-free/"+a.Version)
+	resp, err := a.downloadHTTPClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("github api %s: %s", resp.Status, strings.TrimSpace(string(b)))
+	}
+	return json.NewDecoder(resp.Body).Decode(dst)
+}
+
+func releaseAssetURL(release githubRelease, contains, suffix string) string {
+	contains = strings.ToLower(contains)
+	suffix = strings.ToLower(suffix)
+	for _, asset := range release.Assets {
+		name := strings.ToLower(asset.Name)
+		if contains != "" && !strings.Contains(name, contains) {
+			continue
+		}
+		if suffix != "" && !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		return asset.BrowserDownloadURL
+	}
+	if len(release.Assets) > 0 {
+		return release.Assets[0].BrowserDownloadURL
+	}
+	return ""
+}
+
+func versionDifferent(current, latest string) bool {
+	current = strings.TrimPrefix(strings.TrimSpace(strings.ToLower(current)), "v")
+	latest = strings.TrimPrefix(strings.TrimSpace(strings.ToLower(latest)), "v")
+	return current != "" && latest != "" && current != latest && !strings.Contains(current, "dev")
+}
+
+func shortSHA(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
+	}
+	return sha
 }
