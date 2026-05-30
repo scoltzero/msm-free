@@ -7,11 +7,15 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
@@ -34,6 +38,7 @@ func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/mosdns/clients", a.handleMosDNSClientCreate)
 	mux.HandleFunc("PATCH /api/v1/mosdns/clients/{id}", a.handleMosDNSClientPatch)
 	mux.HandleFunc("DELETE /api/v1/mosdns/clients/{id}", a.handleMosDNSClientDelete)
+	mux.HandleFunc("POST /api/v1/mosdns/clients/{id}/move", a.handleMosDNSClientMove)
 	mux.HandleFunc("POST /api/v1/mosdns/clients/scan", a.handleMosDNSClientScan)
 	mux.HandleFunc("POST /api/v1/mosdns/clients/scan/reset", a.handleMosDNSClientScanReset)
 	mux.HandleFunc("GET /api/v1/mosdns/clients/scan/{id}", a.handleMosDNSClientScanTask)
@@ -88,6 +93,8 @@ func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/mosdns/config/file", a.handleMosDNSConfigFile)
 	mux.HandleFunc("PUT /api/v1/mosdns/config/file", a.handleMosDNSConfigFilePut)
 	mux.HandleFunc("GET /api/v1/mosdns/config/files", a.handleMosDNSConfigFiles)
+	mux.HandleFunc("GET /api/v1/mosdns/config/download", a.handleMosDNSConfigDownload)
+	mux.HandleFunc("POST /api/v1/mosdns/config/upload", a.handleMosDNSConfigUpload)
 
 	mux.HandleFunc("GET /api/v1/mosdns/system/cache", a.handleMosDNSSystemCache)
 	mux.HandleFunc("POST /api/v1/mosdns/system/cache/clear", a.handleMosDNSCacheClear)
@@ -120,41 +127,15 @@ func (a *App) handleMosDNSStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSOverview(w http.ResponseWriter, r *http.Request) {
-	st := a.Services.Status("mosdns")
-	entries := a.mosDNSQueryDataset(2000)
-	cache := mosDNSCacheSummary(entries)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"service":       st,
-		"running":       st.Running,
-		"clients":       a.countTable("mosdns_clients"),
-		"client_ips":    a.countTable("mosdns_client_ips"),
-		"switches":      a.mosDNSSwitchMap(),
-		"api_endpoint":  "http://127.0.0.1:9099",
-		"dns_listen":    ":53",
-		"query_count":   len(entries),
-		"cache_entries": cache["entries"],
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mosDNSSnapshot(queryInt(r, "lines", 5000))})
 }
 
 func (a *App) handleMosDNSStats(w http.ResponseWriter, r *http.Request) {
-	data := map[string]any{}
-	if ok := proxyJSON("http://127.0.0.1:9099/metrics", &data); ok {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": data})
-		return
-	}
-	entries := a.mosDNSQueryDataset(5000)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"running":        a.Services.Status("mosdns").Running,
-		"query_count":    len(entries),
-		"uptime":         a.Services.Status("mosdns").Uptime,
-		"audit":          mosDNSAuditStats(entries),
-		"cache":          mosDNSCacheSummary(entries),
-		"upstream_stats": mosDNSUpstreamStats(entries),
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mosDNSSnapshot(queryInt(r, "lines", 5000))})
 }
 
 func (a *App) handleMosDNSMetrics(w http.ResponseWriter, r *http.Request) {
-	if text, ok := proxyText("http://127.0.0.1:9099/metrics"); ok {
+	if text, ok := proxyText(a.mosDNSAPIURL("/metrics")); ok {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte(text))
 		return
@@ -188,8 +169,9 @@ func (a *App) handleMosDNSVersionSwitch(w http.ResponseWriter, r *http.Request) 
 }
 
 func (a *App) handleMosDNSLogs(w http.ResponseWriter, r *http.Request) {
-	lines := a.serviceLogLines("mosdns", queryInt(r, "lines", 500))
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "lines": lines, "content": strings.Join(lines, "\n")})
+	lines := filterLogLines(a.serviceLogLines("mosdns", queryInt(r, "lines", 500)), r)
+	entries := structuredLogLines(lines)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "lines": lines, "logs": entries, "data": entries, "content": strings.Join(lines, "\n")})
 }
 
 func (a *App) handleMosDNSInstall(w http.ResponseWriter, r *http.Request) {
@@ -212,13 +194,21 @@ func (a *App) handleMosDNSRestart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSCacheClear(w http.ResponseWriter, r *http.Request) {
-	_ = httpPostNoBody("http://127.0.0.1:9099/cache/flush")
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	var err error
+	for _, path := range []string{"/cache/flush", "/api/cache/flush", "/plugins/cache/flush"} {
+		err = httpPostNoBody(a.mosDNSAPIURL(path))
+		if err == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"cleared": true}})
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": map[string]any{"cleared": false}})
 }
 
 func (a *App) handleMosDNSClients(w http.ResponseWriter, r *http.Request) {
+	allowIPs := a.mosDNSClientIPSet()
 	rows, err := a.DB.Query(`select id,coalesce(mac,''),ip,coalesce(hostname,''),coalesce(vendor,''),coalesce(custom_name,''),coalesce(custom_desc,''),coalesce(source,''),coalesce(type,''),query_count,first_seen_at,last_seen_at,last_scan_at,coalesce(interface,''),is_online,created_at,updated_at
-		from mosdns_clients order by is_online desc,last_seen_at desc,id desc limit 1000`)
+		from mosdns_clients`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db_error", err.Error())
 		return
@@ -231,14 +221,94 @@ func (a *App) handleMosDNSClients(w http.ResponseWriter, r *http.Request) {
 		var first, last, scan, created, updated sql.NullTime
 		var online bool
 		_ = rows.Scan(&id, &mac, &ip, &hostname, &vendor, &customName, &customDesc, &source, &typ, &count, &first, &last, &scan, &iface, &online, &created, &updated)
+		status := normalizeMosDNSClientStatus(typ, allowIPs[ip])
+		name := firstNonEmpty(customName, hostname, ip)
 		items = append(items, map[string]any{
 			"id": id, "mac": mac, "ip": ip, "hostname": hostname, "vendor": vendor, "custom_name": customName, "custom_desc": customDesc,
-			"source": source, "type": typ, "query_count": count, "interface": iface, "is_online": online,
+			"name": name, "display_name": name,
+			"source": source, "type": status, "status": status, "zone": status, "query_count": count, "interface": iface, "is_online": online, "online": online,
 			"first_seen_at": nullableTimeString(first), "last_seen_at": nullableTimeString(last), "last_scan_at": nullableTimeString(scan),
 			"created_at": nullableTimeString(created), "updated_at": nullableTimeString(updated),
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items})
+	q := r.URL.Query()
+	search := strings.ToLower(strings.TrimSpace(firstNonEmpty(q.Get("search"), q.Get("q"), q.Get("keyword"))))
+	statusFilter := strings.TrimSpace(firstNonEmpty(q.Get("status"), q.Get("zone"), q.Get("type")))
+	if statusFilter == "all" {
+		statusFilter = ""
+	}
+	filtered := make([]map[string]any, 0, len(items))
+	zones := map[string]int{"unscanned": 0, "disabled": 0, "allow": 0, "deny": 0}
+	for _, item := range items {
+		status := stringMapValue(item, "status")
+		if _, ok := zones[status]; ok {
+			zones[status]++
+		}
+		if statusFilter != "" && status != statusFilter {
+			continue
+		}
+		if search != "" {
+			haystack := strings.ToLower(strings.Join([]string{
+				stringMapValue(item, "ip"),
+				stringMapValue(item, "mac"),
+				stringMapValue(item, "hostname"),
+				stringMapValue(item, "custom_name"),
+				stringMapValue(item, "vendor"),
+			}, " "))
+			if !strings.Contains(haystack, search) {
+				continue
+			}
+		}
+		filtered = append(filtered, item)
+	}
+	sortBy := firstNonEmpty(q.Get("sort_by"), q.Get("sort"), "is_online")
+	order := strings.ToLower(firstNonEmpty(q.Get("order"), q.Get("sort_order"), "desc"))
+	sort.SliceStable(filtered, func(i, j int) bool {
+		left, right := filtered[i], filtered[j]
+		if sortBy == "query_count" {
+			li, _ := left["query_count"].(int64)
+			ri, _ := right["query_count"].(int64)
+			if order == "asc" {
+				return li < ri
+			}
+			return li > ri
+		}
+		lv := stringMapValue(left, sortBy)
+		rv := stringMapValue(right, sortBy)
+		if sortBy == "is_online" || sortBy == "online" {
+			lv = fmt.Sprint(left["is_online"])
+			rv = fmt.Sprint(right["is_online"])
+		}
+		if order == "asc" {
+			return lv < rv
+		}
+		return lv > rv
+	})
+	page := queryInt(r, "page", 1)
+	limit := queryInt(r, "page_size", queryInt(r, "limit", len(filtered)))
+	if limit <= 0 {
+		limit = 100
+	}
+	total := len(filtered)
+	start := (page - 1) * limit
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	pageItems := filtered[start:end]
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data":    pageItems,
+		"items":   pageItems,
+		"clients": pageItems,
+		"zones":   zones,
+		"pagination": map[string]any{
+			"page": page, "limit": limit, "page_size": limit, "total": total, "total_pages": (total + limit - 1) / limit,
+		},
+	})
 }
 
 func (a *App) handleMosDNSClientCreate(w http.ResponseWriter, r *http.Request) {
@@ -260,19 +330,25 @@ func (a *App) handleMosDNSClientCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
+	status := normalizeMosDNSClientStatus(req.Type, false)
 	_, err := a.DB.Exec(`insert into mosdns_clients(mac,ip,hostname,custom_name,custom_desc,source,type,first_seen_at,last_seen_at,last_scan_at,interface,is_online,created_at,updated_at)
 		values(?,?,?,?,?,'manual',?,?,?,?,?,?,?,?)
 		on conflict(mac,ip) do update set hostname=excluded.hostname,custom_name=excluded.custom_name,custom_desc=excluded.custom_desc,last_seen_at=excluded.last_seen_at,last_scan_at=excluded.last_scan_at,interface=excluded.interface,is_online=excluded.is_online,updated_at=excluded.updated_at`,
-		req.MAC, req.IP, req.Hostname, req.CustomName, req.CustomDesc, req.Type, now, now, now, req.Interface, true, now, now)
+		req.MAC, req.IP, req.Hostname, req.CustomName, req.CustomDesc, status, now, now, now, req.Interface, true, now, now)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "db_error", err.Error())
 		return
+	}
+	if status == "allow" {
+		_ = a.setMosDNSClientIPAllowed(req.IP, true, req.CustomName)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 func (a *App) handleMosDNSClientDelete(w http.ResponseWriter, r *http.Request) {
-	_, err := a.DB.Exec(`delete from mosdns_clients where id=?`, r.PathValue("id"))
+	id := r.PathValue("id")
+	_ = a.syncMosDNSClientAllowList(id, "unscanned")
+	_, err := a.DB.Exec(`delete from mosdns_clients where id=? or ip=? or mac=?`, id, id, id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "delete_failed", err.Error())
 		return
@@ -298,8 +374,12 @@ func (a *App) handleMosDNSClientPatch(w http.ResponseWriter, r *http.Request) {
 	if req.IsOnline != nil {
 		online = *req.IsOnline
 	}
+	status := strings.TrimSpace(req.Type)
+	if status != "" {
+		status = normalizeMosDNSClientStatus(status, false)
+	}
 	res, err := a.DB.Exec(`update mosdns_clients set hostname=coalesce(nullif(?,''),hostname),custom_name=coalesce(nullif(?,''),custom_name),custom_desc=coalesce(nullif(?,''),custom_desc),type=coalesce(nullif(?,''),type),interface=coalesce(nullif(?,''),interface),is_online=?,updated_at=? where id=? or ip=? or mac=?`,
-		req.Hostname, req.CustomName, req.CustomDesc, req.Type, req.Interface, online, time.Now(), id, id, id)
+		req.Hostname, req.CustomName, req.CustomDesc, status, req.Interface, online, time.Now(), id, id, id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "update_failed", err.Error())
 		return
@@ -308,19 +388,61 @@ func (a *App) handleMosDNSClientPatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "client not found")
 		return
 	}
+	if status != "" {
+		_ = a.syncMosDNSClientAllowList(id, status)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+func (a *App) handleMosDNSClientMove(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req struct {
+		Status string `json:"status"`
+		Zone   string `json:"zone"`
+		Type   string `json:"type"`
+		Target string `json:"target"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	status := normalizeMosDNSClientStatus(firstNonEmpty(req.Status, req.Zone, req.Type, req.Target), false)
+	if status == "" {
+		status = "unscanned"
+	}
+	res, err := a.DB.Exec(`update mosdns_clients set type=?,updated_at=? where id=? or ip=? or mac=?`, status, time.Now(), id, id, id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "move_failed", err.Error())
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeError(w, http.StatusNotFound, "not_found", "client not found")
+		return
+	}
+	if err := a.syncMosDNSClientAllowList(id, status); err != nil {
+		writeError(w, http.StatusBadRequest, "sync_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"id": id, "status": status, "zone": status}})
 }
 
 func (a *App) handleMosDNSClientScan(w http.ResponseWriter, r *http.Request) {
 	found := scanNeighbors()
 	now := time.Now()
+	allowIPs := a.mosDNSClientIPSet()
 	for _, item := range found {
+		status := "unscanned"
+		if allowIPs[item["ip"]] {
+			status = "allow"
+		}
 		_, _ = a.DB.Exec(`insert into mosdns_clients(mac,ip,hostname,source,type,first_seen_at,last_seen_at,last_scan_at,interface,is_online,created_at,updated_at)
 			values(?,?,?,?,?,?,?,?,?,?,?,?)
 			on conflict(mac,ip) do update set hostname=excluded.hostname,last_seen_at=excluded.last_seen_at,last_scan_at=excluded.last_scan_at,interface=excluded.interface,is_online=true,updated_at=excluded.updated_at`,
-			item["mac"], item["ip"], item["hostname"], "scan", "lan", now, now, now, item["interface"], true, now, now)
+			item["mac"], item["ip"], item["hostname"], "scan", status, now, now, now, item["interface"], true, now, now)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "count": len(found), "data": found})
+	task := map[string]any{"id": "latest", "status": "completed", "running": false, "progress": 100, "found": len(found), "total": len(found), "completed_at": now.Format(time.RFC3339)}
+	a.storeJSONSetting("mosdns_scan_task", task)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "count": len(found), "data": found, "task": task})
 }
 
 func (a *App) handleMosDNSClientScanReset(w http.ResponseWriter, r *http.Request) {
@@ -329,9 +451,12 @@ func (a *App) handleMosDNSClientScanReset(w http.ResponseWriter, r *http.Request
 }
 
 func (a *App) handleMosDNSClientScanTask(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"id": r.PathValue("id"), "status": "completed", "progress": 100, "found": a.countTable("mosdns_clients"),
-	}})
+	fallback := map[string]any{"id": r.PathValue("id"), "status": "completed", "running": false, "progress": 100, "found": a.countTable("mosdns_clients")}
+	task, _ := a.jsonSetting("mosdns_scan_task", fallback).(map[string]any)
+	if task["id"] == "" {
+		task["id"] = r.PathValue("id")
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": task})
 }
 
 func (a *App) handleMosDNSClientIPs(w http.ResponseWriter, r *http.Request) {
@@ -370,15 +495,22 @@ func (a *App) handleMosDNSClientIPCreate(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "db_error", err.Error())
 		return
 	}
+	_, _ = a.DB.Exec(`update mosdns_clients set type='allow',updated_at=? where ip=?`, time.Now(), req.IP)
 	_ = a.rewriteMosDNSClientIPFile()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 func (a *App) handleMosDNSClientIPDelete(w http.ResponseWriter, r *http.Request) {
-	_, err := a.DB.Exec(`delete from mosdns_client_ips where id=?`, r.PathValue("id"))
+	id := r.PathValue("id")
+	var ip string
+	_ = a.DB.QueryRow(`select ip from mosdns_client_ips where id=? or ip=?`, id, id).Scan(&ip)
+	_, err := a.DB.Exec(`delete from mosdns_client_ips where id=? or ip=?`, id, id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "delete_failed", err.Error())
 		return
+	}
+	if ip != "" {
+		_, _ = a.DB.Exec(`update mosdns_clients set type='unscanned',updated_at=? where ip=?`, time.Now(), ip)
 	}
 	_ = a.rewriteMosDNSClientIPFile()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -439,11 +571,17 @@ func (a *App) handleMosDNSRulePut(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(path, "/")
 	category := parts[0]
 	var req struct {
-		Pattern    string   `json:"pattern"`
-		Patterns   []string `json:"patterns"`
-		OldPattern string   `json:"old_pattern"`
-		NewPattern string   `json:"new_pattern"`
-		Content    string   `json:"content"`
+		Pattern  string   `json:"pattern"`
+		Patterns []string `json:"patterns"`
+		Items    []struct {
+			Pattern string `json:"pattern"`
+			Content string `json:"content"`
+			Name    string `json:"name"`
+			Value   string `json:"value"`
+		} `json:"items"`
+		OldPattern string `json:"old_pattern"`
+		NewPattern string `json:"new_pattern"`
+		Content    string `json:"content"`
 	}
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		if err := decodeJSON(r, &req); err != nil {
@@ -455,10 +593,16 @@ func (a *App) handleMosDNSRulePut(w http.ResponseWriter, r *http.Request) {
 		req.Content = string(b)
 	}
 	patterns := a.readMosDNSRulePatterns(category)
-	if len(parts) > 1 && parts[1] == "import" {
+	if len(parts) > 1 && (parts[1] == "clear" || parts[1] == "all") {
+		patterns = nil
+	} else if len(parts) > 1 && parts[1] == "import" {
 		patterns = splitNonEmptyLines(req.Content)
 	} else if len(parts) > 1 && parts[1] == "batch" {
 		patterns = append(patterns, req.Patterns...)
+	} else if len(parts) > 1 && (parts[1] == "sort" || parts[1] == "reorder") {
+		patterns = mosDNSRulePatternsFromRequest(req.Patterns, req.Items)
+	} else if len(req.Items) > 0 {
+		patterns = mosDNSRulePatternsFromRequest(req.Patterns, req.Items)
 	} else if req.OldPattern != "" {
 		replaced := false
 		for i, pattern := range patterns {
@@ -535,8 +679,8 @@ func (a *App) handleMosDNSSwitchesPut(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSQueryLog(w http.ResponseWriter, r *http.Request) {
-	lines := a.serviceLogLines("mosdns", queryInt(r, "lines", 1000))
-	entries := a.mosDNSQueryDataset(queryInt(r, "lines", 5000))
+	capacity := a.mosDNSLogCapacity()
+	entries := a.mosDNSQueryDataset(queryInt(r, "lines", capacity))
 	entries = filterMosDNSQueryEntries(entries, r)
 	page := queryInt(r, "page", 1)
 	limit := queryInt(r, "limit", len(entries))
@@ -552,9 +696,14 @@ func (a *App) handleMosDNSQueryLog(w http.ResponseWriter, r *http.Request) {
 	if end > total {
 		end = total
 	}
+	pageEntries := entries[start:end]
+	lines := mosDNSQueryRawLines(pageEntries)
+	if len(lines) == 0 {
+		lines = a.serviceLogLines("mosdns", queryInt(r, "lines", minInt(capacity, 1000)))
+	}
 	payload := map[string]any{
-		"logs":        entries[start:end],
-		"items":       entries[start:end],
+		"logs":        pageEntries,
+		"items":       pageEntries,
 		"total":       total,
 		"page":        page,
 		"limit":       limit,
@@ -568,7 +717,7 @@ func (a *App) handleMosDNSQueryLog(w http.ResponseWriter, r *http.Request) {
 		a.sseLoop(w, r, 2*time.Second, func() any { return payload })
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": payload, "lines": lines, "logs": entries[start:end]})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": payload, "lines": lines, "logs": pageEntries})
 }
 
 func (a *App) handleMosDNSQueryMeta(w http.ResponseWriter, r *http.Request) {
@@ -600,6 +749,10 @@ func (a *App) handleMosDNSAuditStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSCacheDetailed(w http.ResponseWriter, r *http.Request) {
+	if data, ok := a.mosDNSProxyCache(); ok {
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": data})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
 		"summary": mosDNSCacheSummary(a.mosDNSQueryDataset(5000)), "caches": mosDNSCacheRows(a.mosDNSQueryDataset(5000)),
 	}})
@@ -611,17 +764,30 @@ func (a *App) handleMosDNSUpstreamStats(w http.ResponseWriter, r *http.Request) 
 
 func (a *App) handleMosDNSRoutingTask(w http.ResponseWriter, r *http.Request) {
 	scheduler := a.mosDNSRoutingScheduler()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"running": false, "enabled": false, "status": "idle", "progress": 0, "last_run_at": "", "rules": []any{}, "scheduler": scheduler,
-		"execution_settings": map[string]any{
-			"date_range_days":      7,
-			"queries_per_second":   5,
-			"resolver_address":     "127.0.0.1:53",
-			"url_call_delay_ms":    100,
-			"concurrency":          1,
-			"include_empty_answer": false,
-		},
-	}})
+	state := a.mosDNSRoutingState()
+	state["scheduler"] = scheduler
+	if _, ok := state["execution_settings"]; !ok {
+		state["execution_settings"] = mosDNSRoutingExecutionDefaults()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": state})
+}
+
+func mosDNSRoutingExecutionDefaults() map[string]any {
+	return map[string]any{
+		"date_range_days":      7,
+		"queries_per_second":   5,
+		"resolver_address":     "127.0.0.1:53",
+		"url_call_delay_ms":    100,
+		"concurrency":          1,
+		"include_empty_answer": false,
+	}
+}
+
+func defaultMosDNSRoutingState() map[string]any {
+	return map[string]any{
+		"running": false, "enabled": false, "status": "idle", "progress": 0, "last_run_at": "", "rules": []any{},
+		"execution_settings": mosDNSRoutingExecutionDefaults(),
+	}
 }
 
 func (a *App) handleMosDNSUpstreams(w http.ResponseWriter, r *http.Request) {
@@ -637,6 +803,18 @@ func (a *App) handleMosDNSUpstreamsPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for name, content := range req {
+		if strings.TrimSpace(content) == "" {
+			continue
+		}
+		if strings.HasPrefix(name, "forward_") || name == "local" || name == "remote" {
+			var v any
+			if err := yaml.Unmarshal([]byte(content), &v); err != nil {
+				writeJSON(w, http.StatusOK, map[string]any{"success": false, "valid": false, "error": fmt.Sprintf("%s: %v", name, err)})
+				return
+			}
+		}
+	}
+	for name, content := range req {
 		switch name {
 		case "forward_local", "local":
 			_ = a.writeTextFile("configs/mosdns/sub_config/forward_local.yaml", content)
@@ -644,7 +822,7 @@ func (a *App) handleMosDNSUpstreamsPut(w http.ResponseWriter, r *http.Request) {
 			_ = a.writeTextFile("configs/mosdns/sub_config/forward_nocn.yaml", content)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "restart_required": true, "data": map[string]any{"restart_required": true}})
 }
 
 func (a *App) handleMosDNSConfigFile(w http.ResponseWriter, r *http.Request) {
@@ -678,11 +856,14 @@ func (a *App) handleMosDNSConfigFilePut(w http.ResponseWriter, r *http.Request) 
 	if !strings.HasPrefix(req.Path, "configs/mosdns/") {
 		req.Path = filepath.ToSlash(filepath.Join("configs/mosdns", req.Path))
 	}
+	if old, err := a.readTextFile(req.Path); err == nil {
+		a.createConfigHistory("mosdns", req.Path, old, "auto backup before MosDNS save", currentUsername(r))
+	}
 	if err := a.writeTextFile(req.Path, req.Content); err != nil {
 		writeError(w, http.StatusBadRequest, "write_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "restart_required": true, "data": map[string]any{"restart_required": true}})
 }
 
 func (a *App) handleMosDNSConfigFiles(w http.ResponseWriter, r *http.Request) {
@@ -694,7 +875,67 @@ func (a *App) handleMosDNSConfigFiles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": nodes})
 }
 
+func (a *App) handleMosDNSConfigDownload(w http.ResponseWriter, r *http.Request) {
+	root, err := a.safePath("configs/mosdns")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	b, err := zipDir(root)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "zip_failed", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=mosdns-configs.zip")
+	_, _ = w.Write(b)
+}
+
+func (a *App) handleMosDNSConfigUpload(w http.ResponseWriter, r *http.Request) {
+	if !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		writeError(w, http.StatusBadRequest, "bad_upload", "multipart file required")
+		return
+	}
+	if err := r.ParseMultipartForm(128 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_upload", err.Error())
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_upload", err.Error())
+		return
+	}
+	defer file.Close()
+	tmp, err := os.CreateTemp("", "msm-free-mosdns-*.zip")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "temp_failed", err.Error())
+		return
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := io.Copy(tmp, io.LimitReader(file, 128<<20)); err != nil {
+		tmp.Close()
+		writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())
+		return
+	}
+	tmp.Close()
+	dest, err := a.safePath("configs/mosdns")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "path_error", err.Error())
+		return
+	}
+	if err := restoreZipToDir(tmpPath, dest); err != nil {
+		writeError(w, http.StatusBadRequest, "restore_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "restart_required": true, "data": map[string]any{"restart_required": true}})
+}
+
 func (a *App) handleMosDNSSystemCache(w http.ResponseWriter, r *http.Request) {
+	if data, ok := a.mosDNSProxyCache(); ok {
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": data})
+		return
+	}
 	entries := a.mosDNSQueryDataset(5000)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
 		"entries": mosDNSCacheSummary(entries)["entries"], "memory": 0, "hit_rate": mosDNSCacheSummary(entries)["hit_rate"], "caches": mosDNSCacheRows(entries),
@@ -726,10 +967,12 @@ func (a *App) handleMosDNSClientIPListPut(w http.ResponseWriter, r *http.Request
 		return
 	}
 	_, _ = a.DB.Exec(`delete from mosdns_client_ips`)
+	_, _ = a.DB.Exec(`update mosdns_clients set type='unscanned',updated_at=? where type='allow'`, time.Now())
 	now := time.Now()
 	for _, ip := range req.IPs {
 		if net.ParseIP(ip) != nil {
 			_, _ = a.DB.Exec(`insert into mosdns_client_ips(ip,created_at,updated_at) values(?,?,?) on conflict(ip) do nothing`, ip, now, now)
+			_, _ = a.DB.Exec(`update mosdns_clients set type='allow',updated_at=? where ip=?`, now, ip)
 		}
 	}
 	_ = a.rewriteMosDNSClientIPFile()
@@ -792,19 +1035,38 @@ func (a *App) handleMosDNSOverrides(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSOverridesPut(w http.ResponseWriter, r *http.Request) {
-	a.storeJSONBodySetting(w, r, "mosdns_overrides")
+	var req any
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	a.storeJSONSetting("mosdns_overrides", req)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": req, "restart_required": true})
 }
 
 func (a *App) handleMosDNSRoutingStart(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"status": "started", "running": false}})
+	state, err := a.generateMosDNSRoutingRules()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": state})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": state})
 }
 
 func (a *App) handleMosDNSRoutingSave(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	state := a.mosDNSRoutingState()
+	state["saved_at"] = time.Now().Format(time.RFC3339)
+	a.storeJSONSetting("mosdns_routing_task", state)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": state})
 }
 
 func (a *App) handleMosDNSRoutingClear(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	for _, name := range []string{"fakeiprule.txt", "fakeiplist.txt", "realiprule.txt", "realiplist.txt", "top_domains.txt"} {
+		_ = a.writeTextFile(filepath.ToSlash(filepath.Join("configs/mosdns/gen", name)), "")
+	}
+	state := defaultMosDNSRoutingState()
+	a.storeJSONSetting("mosdns_routing_task", state)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": state})
 }
 
 func (a *App) handleMosDNSRoutingScheduler(w http.ResponseWriter, r *http.Request) {
@@ -844,7 +1106,13 @@ func (a *App) handleMosDNSUpstreamOverrides(w http.ResponseWriter, r *http.Reque
 }
 
 func (a *App) handleMosDNSUpstreamOverridesPut(w http.ResponseWriter, r *http.Request) {
-	a.storeJSONBodySetting(w, r, "mosdns_upstream_overrides")
+	var req any
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	a.storeJSONSetting("mosdns_upstream_overrides", req)
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": req, "restart_required": true})
 }
 
 func (a *App) handleMosDNSRuleCategories(w http.ResponseWriter, r *http.Request) {
@@ -993,7 +1261,7 @@ func (a *App) rewriteMosDNSSwitchFile() error {
 			return err
 		}
 		if a.Services.Status("mosdns").Running {
-			_ = httpPostJSONText("http://127.0.0.1:9099/plugins/"+k+"/post", fmt.Sprintf(`{"value":%q}`, value))
+			_ = httpPostJSONText(a.mosDNSAPIURL("/plugins/"+k+"/post"), fmt.Sprintf(`{"value":%q}`, value))
 		}
 	}
 	return nil
@@ -1128,7 +1396,10 @@ func httpPostNoBody(url string) error {
 	if err != nil {
 		return err
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("http %d from %s", resp.StatusCode, url)
+	}
 	return nil
 }
 
@@ -1138,7 +1409,10 @@ func httpPostJSONText(url, body string) error {
 	if err != nil {
 		return err
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("http %d from %s", resp.StatusCode, url)
+	}
 	return nil
 }
 

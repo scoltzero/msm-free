@@ -39,12 +39,10 @@ func (a *App) handleProxyEvents(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleMosDNSEvents(w http.ResponseWriter, r *http.Request) {
 	a.sseLoopNamed(w, r, 2*time.Second, "mosdns", func() any {
-		return map[string]any{
-			"time":        time.Now(),
-			"service":     a.Services.Status("mosdns"),
-			"switches":    a.mosDNSSwitchMap(),
-			"audit_ranks": map[string]any{"domain": []any{}, "client": []any{}, "domain_set": []any{}},
-		}
+		data := a.mosDNSSnapshot(2000)
+		data["time"] = time.Now()
+		data["audit_ranks"] = map[string]any{"domain": data["top_domains"], "client": data["top_clients"], "domain_set": data["top_rules"]}
+		return data
 	})
 }
 
@@ -58,17 +56,17 @@ func (a *App) handleLogEvents(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
 	last := ""
 	a.sseLoop(w, r, 1500*time.Millisecond, func() any {
-		lines := a.serviceLogLines(service, 40)
+		lines := filterLogLines(a.serviceLogLines(service, queryInt(r, "lines", 40)), r)
 		content := strings.Join(lines, "\n")
 		if content == last {
-			return map[string]any{"service": service, "line": "", "lines": []string{}, "content": content}
+			return map[string]any{"service": service, "line": "", "lines": []string{}, "logs": []any{}, "content": content}
 		}
 		last = content
 		line := ""
 		if len(lines) > 0 {
 			line = lines[len(lines)-1]
 		}
-		return map[string]any{"service": service, "line": line, "lines": lines, "content": content}
+		return map[string]any{"service": service, "line": line, "lines": lines, "logs": structuredLogLines(lines), "content": content}
 	})
 }
 

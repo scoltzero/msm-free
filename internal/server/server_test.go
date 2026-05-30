@@ -215,6 +215,153 @@ func TestMosDNSRuleSourceManagementAndUpdate(t *testing.T) {
 	}
 }
 
+func TestMosDNS9099TakesPriorityForQueryLogsAndOverview(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	if err := os.WriteFile(filepath.Join(app.DataDir, "logs/mosdns.out.log"), []byte(`client_ip=192.168.10.9 query_name=local.example qtype=A rule=local rcode=NOERROR`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/query-logs":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{
+				{"query_name": "remote.example", "client_ip": "192.168.10.8", "query_type": "A", "domain_set": "my_fakeiprule", "response_code": "NOERROR", "answers": []string{"A: 28.0.0.2"}},
+			}})
+		case "/stats":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"query_count": 77}})
+		case "/cache":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"entries": 12, "hit_rate": 88}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer api.Close()
+	app.setSetting("mosdns_api_endpoint", api.URL)
+
+	logs := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/query-logs", token, nil)
+	if logs.Code != http.StatusOK || !strings.Contains(logs.Body.String(), "remote.example") || strings.Contains(logs.Body.String(), "local.example") {
+		t.Fatalf("query logs should prefer 9099: status=%d body=%s", logs.Code, logs.Body.String())
+	}
+	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/overview", token, nil)
+	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"source":"mosdns_9099"`) || !strings.Contains(overview.Body.String(), `"query_count":77`) {
+		t.Fatalf("overview should include 9099 stats: status=%d body=%s", overview.Code, overview.Body.String())
+	}
+}
+
+func TestMosDNSClientMoveSyncsWhitelistFile(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	create := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/clients", token, map[string]any{
+		"ip": "192.168.10.88", "mac": "00:11:22:33:44:55", "hostname": "unit-client",
+	})
+	if create.Code != http.StatusOK {
+		t.Fatalf("create client status=%d body=%s", create.Code, create.Body.String())
+	}
+	move := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/clients/192.168.10.88/move", token, map[string]string{"status": "allow"})
+	if move.Code != http.StatusOK {
+		t.Fatalf("move status=%d body=%s", move.Code, move.Body.String())
+	}
+	listFile, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/client_ip.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(listFile), "192.168.10.88") {
+		t.Fatalf("client_ip.txt missing moved client: %s", string(listFile))
+	}
+	clients := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/clients?status=allow", token, nil)
+	if clients.Code != http.StatusOK || !strings.Contains(clients.Body.String(), `"status":"allow"`) {
+		t.Fatalf("allow clients response mismatch: status=%d body=%s", clients.Code, clients.Body.String())
+	}
+	disable := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/clients/192.168.10.88/move", token, map[string]string{"status": "disabled"})
+	if disable.Code != http.StatusOK {
+		t.Fatalf("disable status=%d body=%s", disable.Code, disable.Body.String())
+	}
+	listFile, err = os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/client_ip.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(listFile), "192.168.10.88") {
+		t.Fatalf("client_ip.txt should remove disabled client: %s", string(listFile))
+	}
+}
+
+func TestMosDNSRuleReorderAndClear(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	reorder := requestJSON(t, app, http.MethodPut, "/api/v1/mosdns/rules/whitelist/reorder", token, map[string]any{
+		"items": []map[string]string{{"pattern": "domain:b.example"}, {"pattern": "domain:a.example"}},
+	})
+	if reorder.Code != http.StatusOK {
+		t.Fatalf("reorder status=%d body=%s", reorder.Code, reorder.Body.String())
+	}
+	content, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/rule/whitelist.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(content); !strings.Contains(got, "domain:b.example\ndomain:a.example\n") {
+		t.Fatalf("rule order not persisted: %s", got)
+	}
+	clear := requestJSON(t, app, http.MethodDelete, "/api/v1/mosdns/rules/whitelist/all", token, nil)
+	if clear.Code != http.StatusOK {
+		t.Fatalf("clear status=%d body=%s", clear.Code, clear.Body.String())
+	}
+	content, err = os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/rule/whitelist.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(content)) != "" {
+		t.Fatalf("rule clear not persisted: %s", string(content))
+	}
+}
+
+func TestMosDNSRoutingTaskGeneratesRuleFiles(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	api := httptest.NewServer(http.NotFoundHandler())
+	defer api.Close()
+	app.setSetting("mosdns_api_endpoint", api.URL)
+	lines := strings.Join([]string{
+		`{"query_name":"fake.example","client_ip":"192.168.10.2","query_type":"A","domain_set":"my_fakeiprule","response_code":"NOERROR","answers":["A: 28.0.0.9"]}`,
+		`client_ip=192.168.10.3 query_name=real.example qtype=A rule=unmatched_rule rcode=NOERROR A: 223.5.5.5`,
+	}, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(app.DataDir, "logs/mosdns.out.log"), []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	start := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/system/routing/start", token, nil)
+	if start.Code != http.StatusOK || !strings.Contains(start.Body.String(), `"status":"completed"`) {
+		t.Fatalf("routing start status=%d body=%s", start.Code, start.Body.String())
+	}
+	fakeRules, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/gen/fakeiprule.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	realRules, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/gen/realiprule.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(fakeRules), "domain:fake.example") || !strings.Contains(string(realRules), "domain:real.example") {
+		t.Fatalf("routing files mismatch fake=%s real=%s", string(fakeRules), string(realRules))
+	}
+}
+
+func TestMosDNSConfigSaveCreatesHistory(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	put := requestJSON(t, app, http.MethodPut, "/api/v1/mosdns/config/file", token, map[string]string{
+		"path": "configs/mosdns/config.yaml", "content": "log:\n  level: info\n",
+	})
+	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), "restart_required") {
+		t.Fatalf("config put status=%d body=%s", put.Code, put.Body.String())
+	}
+	var count int
+	if err := app.DB.QueryRow(`select count(*) from config_histories where service='mosdns' and file_path='configs/mosdns/config.yaml'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count == 0 {
+		t.Fatal("expected MosDNS config save to create history")
+	}
+}
+
 func TestRolePermissionsMatchMSMModel(t *testing.T) {
 	app := newTestApp(t)
 	operator := tokenForRole(t, app, "operator")

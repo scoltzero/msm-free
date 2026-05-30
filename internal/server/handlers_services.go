@@ -92,13 +92,31 @@ func normalizeServiceName(name string) string {
 }
 
 func (a *App) serviceLogLines(name string, n int) []string {
-	st := a.Services.Status(name)
-	if st.LogPath == "" {
-		return nil
-	}
-	lines, err := tailFile(st.LogPath, n)
+	spec, err := a.Services.spec(name)
 	if err != nil {
-		return []string{err.Error()}
+		st := a.Services.Status(name)
+		if st.LogPath == "" {
+			return nil
+		}
+		lines, err := tailFile(st.LogPath, n)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		return lines
 	}
-	return lines
+	var merged []string
+	for _, path := range []string{spec.Stdout, spec.Stderr} {
+		if path == "" {
+			continue
+		}
+		lines, err := tailFile(path, n)
+		if err != nil {
+			continue
+		}
+		merged = append(merged, lines...)
+	}
+	if len(merged) > n && n > 0 {
+		merged = merged[len(merged)-n:]
+	}
+	return merged
 }

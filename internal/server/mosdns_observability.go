@@ -25,9 +25,9 @@ func (a *App) mosDNSQueryDataset(limit int) []map[string]any {
 	if limit <= 0 {
 		limit = 5000
 	}
-	entries := mosDNSQueryEntries(a.serviceLogLines("mosdns", limit))
+	entries := a.mosDNSProxyQueryEntries(limit)
 	if len(entries) == 0 {
-		entries = mosDNSProxyQueryEntries(limit)
+		entries = mosDNSQueryEntries(a.serviceLogLines("mosdns", limit))
 	}
 	if len(entries) > limit {
 		return entries[len(entries)-limit:]
@@ -35,15 +35,15 @@ func (a *App) mosDNSQueryDataset(limit int) []map[string]any {
 	return entries
 }
 
-func mosDNSProxyQueryEntries(limit int) []map[string]any {
-	urls := []string{
-		fmt.Sprintf("http://127.0.0.1:9099/api/query-logs?limit=%d", limit),
-		fmt.Sprintf("http://127.0.0.1:9099/query-logs?limit=%d", limit),
-		fmt.Sprintf("http://127.0.0.1:9099/plugins/query_log/get?limit=%d", limit),
+func (a *App) mosDNSProxyQueryEntries(limit int) []map[string]any {
+	paths := []string{
+		fmt.Sprintf("/api/query-logs?limit=%d", limit),
+		fmt.Sprintf("/query-logs?limit=%d", limit),
+		fmt.Sprintf("/plugins/query_log/get?limit=%d", limit),
 	}
-	for _, url := range urls {
+	for _, path := range paths {
 		var raw any
-		if proxyJSON(url, &raw) {
+		if proxyJSON(a.mosDNSAPIURL(path), &raw) {
 			if entries := normalizeMosDNSQueryPayload(raw); len(entries) > 0 {
 				return entries
 			}

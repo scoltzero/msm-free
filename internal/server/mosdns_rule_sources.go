@@ -29,6 +29,7 @@ type mosDNSRuleSource struct {
 	ConfigPath string `json:"config_path,omitempty"`
 	LocalPath  string `json:"local_path,omitempty"`
 	FileSize   int64  `json:"file_size,omitempty"`
+	Warning    string `json:"warning,omitempty"`
 }
 
 func (a *App) writeMosDNSRuleSources(w http.ResponseWriter, r *http.Request) {
@@ -254,9 +255,12 @@ func (a *App) updateMosDNSRuleSource(source mosDNSRuleSource) (mosDNSRuleSource,
 	if err := a.replaceMosDNSRuleSource(source); err != nil {
 		return source, err
 	}
-	_ = httpPostNoBody("http://127.0.0.1:9099/plugins/" + source.Type + "/reload")
+	if err := httpPostNoBody(a.mosDNSAPIURL("/plugins/" + source.Type + "/reload")); err != nil {
+		source.Warning = "rule downloaded but MosDNS reload failed: " + err.Error()
+	}
 	next, _ := a.findMosDNSRuleSource(source.ID)
 	if next.ID != "" {
+		next.Warning = source.Warning
 		return next, nil
 	}
 	return source, nil
