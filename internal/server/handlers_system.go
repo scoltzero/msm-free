@@ -65,7 +65,7 @@ func (a *App) handleMonitorHistory(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleMonitorStats(w http.ResponseWriter, r *http.Request) {
 	mem := readMemInfo()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"services": a.Services.List(),
+		"services": a.enhancedServiceList(),
 		"resources": map[string]any{
 			"goroutines":     runtime.NumGoroutine(),
 			"cpu_percent":    sampleCPUPercent(),
@@ -78,6 +78,26 @@ func (a *App) handleMonitorStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, a.diagnosticsPayload())
+}
+
+func (a *App) handleDiagnosticsRun(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, a.diagnosticsPayload())
+}
+
+func (a *App) handleDiagnosticsDownload(w http.ResponseWriter, r *http.Request) {
+	payload := a.diagnosticsPayload()
+	b, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "json_error", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=msm-free-diagnostics.json")
+	_, _ = w.Write(b)
+}
+
+func (a *App) diagnosticsPayload() map[string]any {
 	configDirOK := dirReadable(filepath.Join(a.DataDir, "configs"))
 	configFiles := a.validateConfigFiles()
 	deps := dependencyChecks()
@@ -85,21 +105,40 @@ func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	disk := diskUsage(a.DataDir)
 	diskOK := diskHealthy(disk)
 	permissionsOK := dirWritable(a.DataDir) && dirWritable(filepath.Join(a.DataDir, "logs")) && dirWritable(filepath.Join(a.DataDir, "configs"))
+	nft := a.nftStatus()
+	serviceRows := a.enhancedServiceList()
+	serviceOK := true
+	for _, item := range serviceRows {
+		if item["desired_enabled"] == true && item["running"] != true {
+			serviceOK = false
+		}
+	}
+	recentErrors := a.recentErrorLogs(40)
 	checks := []map[string]any{
 		{"name": "配置目录", "key": "config_dir", "ok": configDirOK, "message": boolMessage(configDirOK, "配置目录存在且可访问", "配置目录缺失或不可访问"), "details": filepath.Join(a.DataDir, "configs")},
 		{"name": "配置文件", "key": "config_files", "ok": configFiles["ok"], "message": configFiles["message"], "details": configFiles["details"]},
 		{"name": "依赖项", "key": "dependencies", "ok": deps["ok"], "message": deps["message"], "details": deps["details"]},
 		{"name": "端口占用", "key": "ports", "ok": true, "message": fmt.Sprintf("已检查 %d 个端口", len(ports)), "details": ports},
+		{"name": "服务状态", "key": "services", "ok": serviceOK, "message": boolMessage(serviceOK, "服务状态正常", "存在期望自启但未运行的服务"), "details": serviceRows},
+		{"name": "nftables / ip rule", "key": "nftables", "ok": nft["supported"] == true, "message": boolMessage(nft["supported"] == true, "系统支持 nftables 检查", "当前系统不支持 nftables"), "details": nft},
 		{"name": "磁盘空间", "key": "disk", "ok": diskOK, "message": boolMessage(diskOK, "磁盘空间充足", "磁盘空间不足或无法读取"), "details": disk},
 		{"name": "文件权限", "key": "permissions", "ok": permissionsOK, "message": boolMessage(permissionsOK, "具有必要的读写权限", "缺少必要的读写权限"), "details": map[string]any{"data_dir": a.DataDir}},
+		{"name": "最近错误日志", "key": "recent_errors", "ok": len(recentErrors) == 0, "message": boolMessage(len(recentErrors) == 0, "近期未发现错误日志", fmt.Sprintf("发现 %d 条错误日志", len(recentErrors))), "details": recentErrors},
 	}
 	summary := diagnosticSummary(checks)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "checks": checks, "summary": summary, "data": map[string]any{
-		"checks":  checks,
-		"summary": summary,
-		"ports":   ports,
-		"system":  map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "go_version": runtime.Version(), "cpu_cores": runtime.NumCPU(), "pid": os.Getpid(), "is_root": os.Geteuid() == 0},
-	}})
+	data := map[string]any{
+		"checks":        checks,
+		"summary":       summary,
+		"ports":         ports,
+		"services":      serviceRows,
+		"nftables":      nft,
+		"dependencies":  deps,
+		"disk":          disk,
+		"network":       readNetworkCounters(),
+		"recent_errors": recentErrors,
+		"system":        map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "go_version": runtime.Version(), "cpu_cores": runtime.NumCPU(), "pid": os.Getpid(), "is_root": os.Geteuid() == 0, "version": a.Version, "data_dir": a.DataDir},
+	}
+	return map[string]any{"success": true, "checks": checks, "summary": summary, "data": data}
 }
 
 func (a *App) handleNetworkInfo(w http.ResponseWriter, r *http.Request) {
@@ -226,19 +265,80 @@ func (a *App) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		_ = rows.Scan(&k, &v)
 		settings[k] = v
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "settings": settings})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "settings": settings, "data": settings})
 }
 
 func (a *App) handleSettingsPut(w http.ResponseWriter, r *http.Request) {
-	var settings map[string]string
-	if err := decodeJSON(r, &settings); err != nil {
+	var raw map[string]any
+	if err := decodeJSON(r, &raw); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	for k, v := range settings {
+	for k, value := range raw {
+		v := fmtAny(value)
 		_, _ = a.DB.Exec(`insert or replace into settings(key,value,updated_at) values(?,?,?)`, k, v, nowString())
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+}
+
+func (a *App) handleSettingsProfileGet(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	if u == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": u, "user": u})
+}
+
+func (a *App) handleSettingsProfilePut(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	if u == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
+		return
+	}
+	var req struct {
+		Email       string `json:"email"`
+		DisplayName string `json:"display_name"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	_, err := a.DB.Exec(`update users set email=?,display_name=?,updated_at=? where id=?`, req.Email, req.DisplayName, time.Now(), u.ID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "update_failed", err.Error())
+		return
+	}
+	updated, _ := a.userByID(u.ID)
+	a.audit(u, "settings.profile.update", "settings", "", true, "")
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": updated, "user": updated})
+}
+
+func (a *App) handleSettingsAppearanceGet(w http.ResponseWriter, r *http.Request) {
+	appearance := map[string]string{
+		"theme":        a.setting("appearance.theme", a.setting("theme", "system")),
+		"language":     a.setting("appearance.language", a.setting("language", "zh-CN")),
+		"compact":      a.setting("appearance.compact", "false"),
+		"menu_order":   a.setting("appearance.menu_order", ""),
+		"accent_color": a.setting("appearance.accent_color", ""),
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": appearance, "appearance": appearance})
+}
+
+func (a *App) handleSettingsAppearancePut(w http.ResponseWriter, r *http.Request) {
+	var req map[string]any
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	for key, value := range req {
+		if key == "" {
+			continue
+		}
+		a.setSetting("appearance."+key, fmtAny(value))
+	}
+	a.audit(currentUser(r), "settings.appearance.update", "settings", "", true, "")
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": req})
 }
 
 func (a *App) handleLicenseStatus(w http.ResponseWriter, r *http.Request) {
@@ -378,4 +478,22 @@ func boolMessage(ok bool, good, bad string) string {
 func diskHealthy(disk map[string]any) bool {
 	value, ok := disk["percent"].(float64)
 	return disk["ok"] == true && ok && value < 95
+}
+
+func (a *App) recentErrorLogs(limit int) []map[string]any {
+	var rows []map[string]any
+	for _, service := range []string{"msm", "mosdns", "mihomo"} {
+		for _, item := range structuredLogLines(a.serviceLogLines(service, 500)) {
+			level := strings.ToLower(fmtAny(item["level"]))
+			if level != "error" && level != "fatal" && level != "warn" {
+				continue
+			}
+			item["service"] = service
+			rows = append(rows, item)
+		}
+	}
+	if limit > 0 && len(rows) > limit {
+		return rows[len(rows)-limit:]
+	}
+	return rows
 }

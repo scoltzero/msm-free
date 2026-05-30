@@ -3,9 +3,11 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -98,8 +100,34 @@ func (a *App) handleSetupPutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetConfiguredRuntimeDesired(cfg)
-	_ = a.writeGeneratedConfigs(cfg)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "config": cfg})
+	if err := a.writeGeneratedConfigs(cfg); err != nil {
+		writeError(w, http.StatusInternalServerError, "config_error", err.Error())
+		return
+	}
+	restarted := []string{}
+	for _, name := range managedServiceNames() {
+		st := a.Services.Status(name)
+		if st.Running {
+			if _, err := a.Services.Restart(r.Context(), name); err == nil {
+				restarted = append(restarted, name)
+			}
+		}
+	}
+	missing := []string{}
+	for _, name := range managedServiceNames() {
+		if !a.Services.Status(name).Installed {
+			missing = append(missing, name)
+		}
+	}
+	networkReapply := shouldRestoreNFT(cfg)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":                  true,
+		"config":                   cfg,
+		"restarted_services":       restarted,
+		"needs_download":           len(missing) > 0,
+		"download_component":       missing,
+		"network_reapply_required": networkReapply,
+	})
 }
 
 func (a *App) handleSetupInitialize(w http.ResponseWriter, r *http.Request) {
@@ -148,12 +176,27 @@ func (a *App) handleSetupReset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin required")
 		return
 	}
+	var req struct {
+		DeleteBinaries   bool `json:"delete_binaries"`
+		DeleteComponents bool `json:"delete_components"`
+	}
+	if err := decodeJSON(r, &req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
 	_ = a.Services.StopAll(r.Context())
 	_, _ = a.DB.Exec(`delete from system_setups`)
 	a.Services.setDesired("mihomo", false)
 	a.Services.setDesired("mosdns", false)
 	a.setSetting(nftDesiredKey, "false")
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	deletedBinaries := false
+	if req.DeleteBinaries || req.DeleteComponents {
+		_ = os.RemoveAll(filepath.Join(a.DataDir, "data/binaries/mihomo"))
+		_ = os.RemoveAll(filepath.Join(a.DataDir, "data/binaries/mosdns"))
+		deletedBinaries = true
+	}
+	a.audit(currentUser(r), "setup.reset", "system", fmt.Sprintf("delete_binaries=%t", deletedBinaries), true, "")
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "deleted_binaries": deletedBinaries})
 }
 
 func (a *App) handleSetupDownload(w http.ResponseWriter, r *http.Request) {

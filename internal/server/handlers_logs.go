@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,50 +10,102 @@ import (
 
 func (a *App) handleLogs(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
-	lines := a.serviceLogLines(service, queryInt(r, "lines", 1000))
-	logs := parseLogLines(lines)
+	linesLimit := queryInt(r, "lines", 1000)
+	sourceRows := a.serviceLogLinesWithSources(service, linesLimit)
+	rawLines := make([]string, 0, len(sourceRows))
+	logs := make([]map[string]any, 0, len(sourceRows))
+	for _, row := range sourceRows {
+		rawLines = append(rawLines, row["line"])
+		entry := structuredLogLines([]string{row["line"]})[0]
+		entry["source"] = row["source"]
+		entry["path"] = row["path"]
+		logs = append(logs, entry)
+	}
+	logs = filterStructuredLogs(logs, r)
+	page, pageSize := pageParams(r, len(logs))
+	if r.URL.Query().Get("page") == "" && r.URL.Query().Get("page_size") == "" && r.URL.Query().Get("limit") == "" {
+		page = 1
+		pageSize = len(logs)
+		if pageSize == 0 {
+			pageSize = 1
+		}
+	}
+	paged := slicePage(logs, page, pageSize)
+	lines := make([]string, 0, len(paged))
+	for _, item := range paged {
+		lines = append(lines, firstNonEmpty(fmtAny(item["raw"]), fmtAny(item["message"])))
+	}
+	stats := logStats(logs)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"service": service,
-		"lines":   lines,
-		"logs":    logs,
-		"data":    logs,
-		"content": strings.Join(lines, "\n"),
+		"success":    true,
+		"service":    service,
+		"lines":      lines,
+		"raw_lines":  rawLines,
+		"logs":       paged,
+		"items":      paged,
+		"data":       paged,
+		"content":    strings.Join(lines, "\n"),
+		"pagination": pagination(page, pageSize, len(logs)),
+		"stats":      stats,
+		"paths":      a.logPathRows(service),
 	})
 }
 
 func (a *App) handleLogsClear(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
-	st := a.Services.Status(service)
-	if st.LogPath != "" {
-		_ = os.WriteFile(st.LogPath, nil, 0644)
+	cleared := 0
+	for _, path := range a.logPaths(service) {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err == nil {
+			_ = os.WriteFile(path, nil, 0644)
+			cleared++
+		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "service": service, "cleared": cleared})
 }
 
 func (a *App) handleLogsDownload(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
-	st := a.Services.Status(service)
-	if st.LogPath == "" {
-		writeError(w, http.StatusNotFound, "not_found", "log not found")
+	paths := a.logPaths(service)
+	files := map[string]string{}
+	for _, path := range paths {
+		files[filepath.Base(path)] = path
+	}
+	if len(files) == 0 {
+		files["README.txt"] = ""
+	}
+	if len(files) == 1 && r.URL.Query().Get("format") != "zip" {
+		for _, path := range files {
+			if path == "" {
+				break
+			}
+			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(path))
+			serveLocalFile(w, r, path)
+			return
+		}
+	}
+	b, err := zipFiles(files)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "zip_failed", err.Error())
 		return
 	}
-	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(st.LogPath))
-	serveLocalFile(w, r, st.LogPath)
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-logs.zip", service))
+	_, _ = w.Write(b)
 }
 
 func (a *App) handleLogsStats(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
-	st := a.Services.Status(service)
-	info, err := os.Stat(st.LogPath)
 	size := int64(0)
-	if err == nil {
-		size = info.Size()
+	for _, path := range a.logPaths(service) {
+		if info, err := os.Stat(path); err == nil {
+			size += info.Size()
+		}
 	}
 	stats := logStats(parseLogLines(a.serviceLogLines(service, 5000)))
 	stats["service"] = service
 	stats["size"] = size
 	stats["file_size"] = size
+	stats["paths"] = a.logPathRows(service)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": stats, "service": service, "size": size})
 }
 

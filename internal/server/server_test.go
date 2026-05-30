@@ -537,6 +537,97 @@ func TestConfigCompareBackupAndDiagnostics(t *testing.T) {
 	}
 }
 
+func TestBasicManagementServiceLogsAndConfigAPIs(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	services := requestJSON(t, app, http.MethodGet, "/api/v1/services", token, nil)
+	if services.Code != http.StatusOK || !strings.Contains(services.Body.String(), "desired_enabled") || !strings.Contains(services.Body.String(), "health_ports") {
+		t.Fatalf("services compatibility response incomplete: status=%d body=%s", services.Code, services.Body.String())
+	}
+	stopAll := requestJSON(t, app, http.MethodPost, "/api/v1/services/stop-all?wait=1&timeout_ms=100", token, nil)
+	if stopAll.Code != http.StatusOK || !strings.Contains(stopAll.Body.String(), "mosdns") || !strings.Contains(stopAll.Body.String(), "mihomo") {
+		t.Fatalf("stop-all response incomplete: status=%d body=%s", stopAll.Code, stopAll.Body.String())
+	}
+	if err := os.WriteFile(filepath.Join(app.DataDir, "logs/mihomo.out.log"), []byte("[info] started\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app.DataDir, "logs/mihomo.err.log"), []byte("[warn] proxy provider failed\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	logs := requestJSON(t, app, http.MethodGet, "/api/v1/logs/mihomo?level=warn&search=provider&page=1&page_size=1", token, nil)
+	if logs.Code != http.StatusOK || !strings.Contains(logs.Body.String(), "proxy provider failed") || !strings.Contains(logs.Body.String(), "pagination") {
+		t.Fatalf("logs filtering response mismatch: status=%d body=%s", logs.Code, logs.Body.String())
+	}
+	download := requestJSON(t, app, http.MethodGet, "/api/v1/logs/mihomo/download?format=zip", token, nil)
+	if download.Code != http.StatusOK || !strings.Contains(download.Header().Get("Content-Type"), "application/zip") {
+		t.Fatalf("logs zip download mismatch: status=%d content-type=%s", download.Code, download.Header().Get("Content-Type"))
+	}
+	clear := requestJSON(t, app, http.MethodDelete, "/api/v1/logs/mihomo", token, nil)
+	if clear.Code != http.StatusOK {
+		t.Fatalf("logs clear failed: status=%d body=%s", clear.Code, clear.Body.String())
+	}
+	if b, _ := os.ReadFile(filepath.Join(app.DataDir, "logs/mihomo.err.log")); len(b) != 0 {
+		t.Fatalf("stderr log should be cleared, got %q", string(b))
+	}
+	put := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", token, map[string]any{"path": "configs/mihomo/config.yaml", "content": "mode: rule\n", "comment": "test save"})
+	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), "history_id") || !strings.Contains(put.Body.String(), "restart_required") {
+		t.Fatalf("config save response incomplete: status=%d body=%s", put.Code, put.Body.String())
+	}
+	history := requestJSON(t, app, http.MethodGet, "/api/v1/history?service=mihomo&page=1&page_size=1", token, nil)
+	if history.Code != http.StatusOK || !strings.Contains(history.Body.String(), "pagination") || !strings.Contains(history.Body.String(), "configs/mihomo/config.yaml") {
+		t.Fatalf("history filter response mismatch: status=%d body=%s", history.Code, history.Body.String())
+	}
+}
+
+func TestBasicManagementUsersTokensSettingsAndDiagnostics(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	badRole := requestJSON(t, app, http.MethodPost, "/api/v1/users", token, map[string]any{"username": "badrole", "password": "12345678", "role": "root"})
+	if badRole.Code != http.StatusBadRequest {
+		t.Fatalf("invalid role should fail, status=%d body=%s", badRole.Code, badRole.Body.String())
+	}
+	create := requestJSON(t, app, http.MethodPost, "/api/v1/users", token, map[string]any{"username": "op1", "password": "12345678", "role": "operator", "display_name": "Operator"})
+	if create.Code != http.StatusCreated {
+		t.Fatalf("user create failed: status=%d body=%s", create.Code, create.Body.String())
+	}
+	list := requestJSON(t, app, http.MethodGet, "/api/v1/users?search=op1&role=operator&page=1&page_size=5", token, nil)
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "pagination") || !strings.Contains(list.Body.String(), "op1") {
+		t.Fatalf("user list filters mismatch: status=%d body=%s", list.Code, list.Body.String())
+	}
+	selfDelete := requestJSON(t, app, http.MethodDelete, "/api/v1/users/1", token, nil)
+	if selfDelete.Code != http.StatusBadRequest || !strings.Contains(selfDelete.Body.String(), "self_delete") {
+		t.Fatalf("self delete should be blocked: status=%d body=%s", selfDelete.Code, selfDelete.Body.String())
+	}
+	tokenCreate := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", token, map[string]any{"name": "test-token", "expires_in": 60})
+	if tokenCreate.Code != http.StatusOK || !strings.Contains(tokenCreate.Body.String(), "msmf_") {
+		t.Fatalf("api token create failed: status=%d body=%s", tokenCreate.Code, tokenCreate.Body.String())
+	}
+	audit := requestJSON(t, app, http.MethodGet, "/api/v1/audit-logs?action=user.create", token, nil)
+	if audit.Code != http.StatusOK || !strings.Contains(audit.Body.String(), "user.create") || !strings.Contains(audit.Body.String(), "pagination") {
+		t.Fatalf("audit logs response mismatch: status=%d body=%s", audit.Code, audit.Body.String())
+	}
+	appearancePut := requestJSON(t, app, http.MethodPut, "/api/v1/settings/appearance", token, map[string]any{"theme": "dark", "language": "zh-CN"})
+	if appearancePut.Code != http.StatusOK {
+		t.Fatalf("appearance put failed: status=%d body=%s", appearancePut.Code, appearancePut.Body.String())
+	}
+	appearance := requestJSON(t, app, http.MethodGet, "/api/v1/settings/appearance", token, nil)
+	if appearance.Code != http.StatusOK || !strings.Contains(appearance.Body.String(), "dark") {
+		t.Fatalf("appearance get mismatch: status=%d body=%s", appearance.Code, appearance.Body.String())
+	}
+	diagRun := requestJSON(t, app, http.MethodPost, "/api/v1/system/diagnostics/run", token, nil)
+	if diagRun.Code != http.StatusOK || !strings.Contains(diagRun.Body.String(), "服务状态") || !strings.Contains(diagRun.Body.String(), "recent_errors") {
+		t.Fatalf("diagnostics run incomplete: status=%d body=%s", diagRun.Code, diagRun.Body.String())
+	}
+	diagDownload := requestJSON(t, app, http.MethodGet, "/api/v1/system/diagnostics/download", token, nil)
+	if diagDownload.Code != http.StatusOK || !strings.Contains(diagDownload.Header().Get("Content-Disposition"), "diagnostics") {
+		t.Fatalf("diagnostics download mismatch: status=%d headers=%v", diagDownload.Code, diagDownload.Header())
+	}
+	setup := requestJSON(t, app, http.MethodPut, "/api/v1/setup/config", token, map[string]any{"username": "root", "selected_interface": "eth0", "subscription_urls": "https://example.com/sub.yaml", "proxyCore": "mihomo", "mosdnsEnabled": true})
+	if setup.Code != http.StatusOK || !strings.Contains(setup.Body.String(), "network_reapply_required") || !strings.Contains(setup.Body.String(), "download_component") {
+		t.Fatalf("setup config compatibility response mismatch: status=%d body=%s", setup.Code, setup.Body.String())
+	}
+}
+
 func newFakeMihomoController(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

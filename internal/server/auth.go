@@ -257,6 +257,9 @@ func (a *App) authorizeRequest(u *User, r *http.Request) bool {
 	if path == "/api/v1/auth/me" || path == "/api/v1/profile" || path == "/api/v1/profile/password" {
 		return true
 	}
+	if path == "/api/v1/settings/profile" || path == "/api/v1/settings/appearance" {
+		return role != "guest"
+	}
 	if strings.HasPrefix(path, "/api/v1/api-tokens") {
 		return role != "guest"
 	}
@@ -275,6 +278,7 @@ func (a *App) authorizeRequest(u *User, r *http.Request) bool {
 func operatorAllows(method, path string) bool {
 	deniedPrefixes := []string{
 		"/api/v1/users",
+		"/api/v1/audit-logs",
 		"/api/v1/settings",
 		"/api/v1/setup/reset",
 		"/api/v1/license-activation/activate",
