@@ -54,11 +54,14 @@ func (a *App) handleConfigFilePut(w http.ResponseWriter, r *http.Request) {
 		req.Path = req.FilePath
 	}
 	req.Path = normalizeConfigRel(req.Path)
-	if err := a.writeTextFile(req.Path, req.Content); err != nil {
+	historyID, err := a.saveConfigFileWithHistory(req.Path, req.Content, req.Comment, currentUsername(r))
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "write_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	result := configWriteResult(req.Path, historyID)
+	result["success"] = true
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleConfigFileCreate(w http.ResponseWriter, r *http.Request) {
@@ -72,11 +75,18 @@ func (a *App) handleConfigFileDelete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "path_error", err.Error())
 		return
 	}
+	historyID := int64(0)
+	if old, err := os.ReadFile(path); err == nil {
+		a.createConfigHistory(serviceFromPath(rel), rel, string(old), "auto backup before delete", currentUsername(r))
+		_ = a.DB.QueryRow(`select last_insert_rowid()`).Scan(&historyID)
+	}
 	if err := os.RemoveAll(path); err != nil {
 		writeError(w, http.StatusBadRequest, "delete_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	result := configWriteResult(rel, historyID)
+	result["success"] = true
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleConfigDirectory(w http.ResponseWriter, r *http.Request) {
@@ -134,11 +144,18 @@ func (a *App) handleConfigCopy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "copy_failed", err.Error())
 		return
 	}
+	historyID := int64(0)
+	if old, err := os.ReadFile(dst); err == nil {
+		a.createConfigHistory(serviceFromPath(req.Target), req.Target, string(old), "auto backup before copy overwrite", currentUsername(r))
+		_ = a.DB.QueryRow(`select last_insert_rowid()`).Scan(&historyID)
+	}
 	if err := copyFile(src, dst, info.Mode()); err != nil {
 		writeError(w, http.StatusBadRequest, "copy_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	result := configWriteResult(req.Target, historyID)
+	result["success"] = true
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleConfigRename(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +191,11 @@ func (a *App) handleConfigRename(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "rename_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	result := configWriteResult(req.Target, 0)
+	result["success"] = true
+	result["old_path"] = req.Source
+	result["new_path"] = req.Target
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
@@ -254,17 +275,20 @@ func (a *App) handleConfigUpload(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "mkdir_failed", err.Error())
 			return
 		}
-		out, err := os.Create(path)
+		b, err := io.ReadAll(io.LimitReader(file, 64<<20))
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "create_failed", err.Error())
-			return
-		}
-		defer out.Close()
-		if _, err := io.Copy(out, io.LimitReader(file, 64<<20)); err != nil {
 			writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "path": rel})
+		historyID, err := a.saveConfigFileWithHistory(rel, string(b), "auto backup before upload", currentUsername(r))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())
+			return
+		}
+		result := configWriteResult(rel, historyID)
+		result["success"] = true
+		result["path"] = rel
+		writeJSON(w, http.StatusOK, result)
 		return
 	}
 	if rel == "" {
@@ -280,18 +304,20 @@ func (a *App) handleConfigUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "mkdir_failed", err.Error())
 		return
 	}
-	out, err := os.Create(path)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "create_failed", err.Error())
-		return
-	}
-	defer out.Close()
-	_, err = io.Copy(out, io.LimitReader(r.Body, 64<<20))
+	b, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "path": rel})
+	historyID, err := a.saveConfigFileWithHistory(rel, string(b), "auto backup before upload", currentUsername(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "upload_failed", err.Error())
+		return
+	}
+	result := configWriteResult(rel, historyID)
+	result["success"] = true
+	result["path"] = rel
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleHistoryCreate(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +363,33 @@ func (a *App) handleHistoryCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleHistory(w http.ResponseWriter, r *http.Request) {
-	rows, err := a.DB.Query(`select id,service,file_path,comment,is_stable,created_by,created_at from config_histories where deleted_at is null order by id desc limit 200`)
+	conds := []string{"deleted_at is null"}
+	args := []any{}
+	if service := strings.TrimSpace(r.URL.Query().Get("service")); service != "" && service != "all" {
+		conds = append(conds, "service=?")
+		args = append(args, normalizeServiceName(service))
+	}
+	if path := strings.TrimSpace(firstNonEmpty(r.URL.Query().Get("path"), r.URL.Query().Get("file_path"))); path != "" {
+		conds = append(conds, "file_path like ?")
+		args = append(args, "%"+normalizeConfigRel(path)+"%")
+	}
+	if keyword := strings.TrimSpace(firstNonEmpty(r.URL.Query().Get("keyword"), r.URL.Query().Get("search"), r.URL.Query().Get("q"))); keyword != "" {
+		conds = append(conds, "(file_path like ? or comment like ? or created_by like ?)")
+		like := "%" + keyword + "%"
+		args = append(args, like, like, like)
+	}
+	if stable := strings.TrimSpace(firstNonEmpty(r.URL.Query().Get("stable"), r.URL.Query().Get("is_stable"))); stable != "" && stable != "all" {
+		conds = append(conds, "is_stable=?")
+		args = append(args, stable == "1" || strings.EqualFold(stable, "true"))
+	}
+	where := strings.Join(conds, " and ")
+	countQuery := `select count(*) from config_histories where ` + where
+	var total int
+	_ = a.DB.QueryRow(countQuery, args...).Scan(&total)
+	page, pageSize := pageParams(r, 50)
+	query := `select id,service,file_path,comment,is_stable,created_by,created_at from config_histories where ` + where + ` order by id desc limit ? offset ?`
+	queryArgs := append(args, pageSize, (page-1)*pageSize)
+	rows, err := a.DB.Query(query, queryArgs...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db_error", err.Error())
 		return
@@ -351,7 +403,7 @@ func (a *App) handleHistory(w http.ResponseWriter, r *http.Request) {
 		_ = rows.Scan(&id, &service, &path, &comment, &stable, &by, &created)
 		items = append(items, map[string]any{"id": id, "service": service, "file_path": path, "comment": comment, "is_stable": stable, "created_by": by, "created_at": created})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items, "items": items, "histories": items, "pagination": pagination(page, pageSize, total), "meta": map[string]any{"pagination": pagination(page, pageSize, total)}})
 }
 
 func (a *App) handleHistoryGet(w http.ResponseWriter, r *http.Request) {
@@ -383,11 +435,15 @@ func (a *App) handleHistoryRollback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "history not found")
 		return
 	}
-	if err := a.writeTextFile(path, content); err != nil {
+	historyID, err := a.saveConfigFileWithHistory(path, content, "auto backup before rollback to history "+id, currentUsername(r))
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "rollback_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	result := configWriteResult(path, historyID)
+	result["success"] = true
+	result["rolled_back_to"] = id
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) handleHistoryStar(w http.ResponseWriter, r *http.Request) {
@@ -498,7 +554,7 @@ func (a *App) handleConfigRestore(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "restore_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"restored": name}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "restart_required": true, "affected_service": "all", "data": map[string]any{"restored": name, "restart_required": true}})
 }
 
 func zipDir(root string) ([]byte, error) {
