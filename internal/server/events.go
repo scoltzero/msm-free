@@ -29,11 +29,9 @@ func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleProxyEvents(w http.ResponseWriter, r *http.Request) {
 	a.sseLoopNamed(w, r, time.Second, "proxy", func() any {
-		return map[string]any{
-			"time":   time.Now(),
-			"mihomo": a.Services.Status("mihomo"),
-			"mosdns": a.Services.Status("mosdns"),
-		}
+		data := a.proxySnapshot()
+		data["time"] = time.Now()
+		return data
 	})
 }
 
@@ -48,7 +46,9 @@ func (a *App) handleMosDNSEvents(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleMihomoEvents(w http.ResponseWriter, r *http.Request) {
 	a.sseLoopNamed(w, r, 2*time.Second, "mihomo", func() any {
-		return map[string]any{"time": time.Now(), "service": a.Services.Status("mihomo"), "version": a.mihomoVersion()}
+		data := a.mihomoSnapshot()
+		data["time"] = time.Now()
+		return data
 	})
 }
 

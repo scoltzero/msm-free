@@ -362,6 +362,133 @@ func TestMosDNSConfigSaveCreatesHistory(t *testing.T) {
 	}
 }
 
+func TestMihomoControllerBackedOverviewAndTraffic(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	api := newFakeMihomoController(t)
+	defer api.Close()
+	app.setSetting("mihomo_controller_endpoint", api.URL)
+
+	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/overview", token, nil)
+	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"version":"v1.19.9"`) || !strings.Contains(overview.Body.String(), `"connection_count":2`) || !strings.Contains(overview.Body.String(), `"proxy_provider_count":1`) {
+		t.Fatalf("mihomo overview should use controller data: status=%d body=%s", overview.Code, overview.Body.String())
+	}
+	traffic := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/traffic", token, nil)
+	if traffic.Code != http.StatusOK || !strings.Contains(traffic.Body.String(), `"download":4096`) || !strings.Contains(traffic.Body.String(), `"upload":1024`) {
+		t.Fatalf("mihomo traffic mismatch: status=%d body=%s", traffic.Code, traffic.Body.String())
+	}
+	proxy := requestJSON(t, app, http.MethodGet, "/api/v1/proxy/overview", token, nil)
+	if proxy.Code != http.StatusOK || !strings.Contains(proxy.Body.String(), `"core":"mihomo"`) || !strings.Contains(proxy.Body.String(), `"mode":"rule"`) {
+		t.Fatalf("proxy overview mismatch: status=%d body=%s", proxy.Code, proxy.Body.String())
+	}
+}
+
+func TestMihomoConnectionsProxiesRulesAndClose(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	api := newFakeMihomoController(t)
+	defer api.Close()
+	app.setSetting("mihomo_controller_endpoint", api.URL)
+
+	connections := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/connections?search=google&page=1&page_size=1", token, nil)
+	if connections.Code != http.StatusOK || !strings.Contains(connections.Body.String(), `"total":1`) || !strings.Contains(connections.Body.String(), `"host":"google.com"`) {
+		t.Fatalf("connection filtering mismatch: status=%d body=%s", connections.Code, connections.Body.String())
+	}
+	closeAll := requestJSON(t, app, http.MethodDelete, "/api/v1/mihomo/connections", token, nil)
+	if closeAll.Code != http.StatusOK || !strings.Contains(closeAll.Body.String(), `"success":true`) {
+		t.Fatalf("connection close failed: status=%d body=%s", closeAll.Code, closeAll.Body.String())
+	}
+	proxies := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/proxies?search=proxy", token, nil)
+	if proxies.Code != http.StatusOK || !strings.Contains(proxies.Body.String(), `"name":"Proxy"`) || !strings.Contains(proxies.Body.String(), `"name":"proxy-a"`) {
+		t.Fatalf("proxy list mismatch: status=%d body=%s", proxies.Code, proxies.Body.String())
+	}
+	selectProxy := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/proxies/Proxy", token, map[string]string{"name": "proxy-a"})
+	if selectProxy.Code != http.StatusOK || !strings.Contains(selectProxy.Body.String(), `"updated":true`) {
+		t.Fatalf("proxy select mismatch: status=%d body=%s", selectProxy.Code, selectProxy.Body.String())
+	}
+	rules := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/rules?type=DOMAIN-SUFFIX", token, nil)
+	if rules.Code != http.StatusOK || !strings.Contains(rules.Body.String(), `"payload":"google.com"`) || strings.Contains(rules.Body.String(), "geoip") {
+		t.Fatalf("rules filtering mismatch: status=%d body=%s", rules.Code, rules.Body.String())
+	}
+}
+
+func TestMihomoProviderConfigManagementCreatesHistory(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	api := newFakeMihomoController(t)
+	defer api.Close()
+	app.setSetting("mihomo_controller_endpoint", api.URL)
+
+	put := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/proxy-providers/airport", token, map[string]any{
+		"url":      "https://example.com/sub.yaml",
+		"interval": 3600,
+	})
+	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), `"restart_required":true`) {
+		t.Fatalf("proxy provider put status=%d body=%s", put.Code, put.Body.String())
+	}
+	cfg, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfg), "airport:") || !strings.Contains(string(cfg), "https://example.com/sub.yaml") {
+		t.Fatalf("proxy provider not persisted:\n%s", string(cfg))
+	}
+	update := requestJSON(t, app, http.MethodPost, "/api/v1/mihomo/proxy-providers/airport/update", token, nil)
+	if update.Code != http.StatusOK || !strings.Contains(update.Body.String(), `"healthcheck":true`) {
+		t.Fatalf("proxy provider update status=%d body=%s", update.Code, update.Body.String())
+	}
+	rulePut := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/rule-providers/directlist", token, map[string]any{
+		"url":      "https://example.com/rules.yaml",
+		"behavior": "domain",
+	})
+	if rulePut.Code != http.StatusOK || !strings.Contains(rulePut.Body.String(), `"restart_required":true`) {
+		t.Fatalf("rule provider put status=%d body=%s", rulePut.Code, rulePut.Body.String())
+	}
+	list := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/providers", token, nil)
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"name":"airport"`) || !strings.Contains(list.Body.String(), `"name":"directlist"`) {
+		t.Fatalf("providers list mismatch: status=%d body=%s", list.Code, list.Body.String())
+	}
+	var count int
+	if err := app.DB.QueryRow(`select count(*) from config_histories where service='mihomo' and file_path='configs/mihomo/config.yaml'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count == 0 {
+		t.Fatal("expected Mihomo provider config updates to create history")
+	}
+	del := requestJSON(t, app, http.MethodDelete, "/api/v1/mihomo/proxy-providers/airport", token, nil)
+	if del.Code != http.StatusOK || !strings.Contains(del.Body.String(), `"restart_required":true`) {
+		t.Fatalf("proxy provider delete status=%d body=%s", del.Code, del.Body.String())
+	}
+}
+
+func TestMihomoConfigAndLogPanelCompatibility(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	logPath := filepath.Join(app.DataDir, "logs/mihomo.out.log")
+	if err := os.WriteFile(logPath, []byte("[info] started\n[warning] proxy provider failed\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	logs := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/logs?level=warn&search=provider", token, nil)
+	if logs.Code != http.StatusOK || !strings.Contains(logs.Body.String(), "proxy provider failed") || strings.Contains(logs.Body.String(), "started") {
+		t.Fatalf("mihomo logs filtering mismatch: status=%d body=%s", logs.Code, logs.Body.String())
+	}
+	put := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/config/config.yaml", token, map[string]any{"content": "mode: rule\nmixed-port: 7892\n"})
+	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), `"restart_required":true`) {
+		t.Fatalf("mihomo config path put status=%d body=%s", put.Code, put.Body.String())
+	}
+	var count int
+	if err := app.DB.QueryRow(`select count(*) from config_histories where service='mihomo' and file_path='configs/mihomo/config.yaml'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count == 0 {
+		t.Fatal("expected Mihomo config path save to create history")
+	}
+	files := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/config/files", token, nil)
+	if files.Code != http.StatusOK || !strings.Contains(files.Body.String(), "config.yaml") {
+		t.Fatalf("mihomo config files mismatch: status=%d body=%s", files.Code, files.Body.String())
+	}
+}
+
 func TestRolePermissionsMatchMSMModel(t *testing.T) {
 	app := newTestApp(t)
 	operator := tokenForRole(t, app, "operator")
@@ -408,6 +535,71 @@ func TestConfigCompareBackupAndDiagnostics(t *testing.T) {
 	if diag.Code != http.StatusOK || !strings.Contains(diag.Body.String(), "配置目录") || !strings.Contains(diag.Body.String(), "端口占用") {
 		t.Fatalf("diagnostics incomplete: status=%d body=%s", diag.Code, diag.Body.String())
 	}
+}
+
+func newFakeMihomoController(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/version":
+			_ = json.NewEncoder(w).Encode(map[string]any{"version": "v1.19.9", "premium": "v1.19.9"})
+		case "/configs":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"mode": "rule", "log-level": "info", "allow-lan": true,
+				"mixed-port": 7892, "redir-port": 7877, "tproxy-port": 7896, "external-controller": ":9090",
+			})
+		case "/traffic":
+			_ = json.NewEncoder(w).Encode(map[string]any{"up": 1024, "down": 4096})
+		case "/connections":
+			if r.Method == http.MethodDelete {
+				_ = json.NewEncoder(w).Encode(map[string]any{"closed": true})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"downloadTotal": 8192, "uploadTotal": 2048,
+				"connections": []map[string]any{
+					{
+						"id": "c1", "rule": "RuleSet", "rulePayload": "google", "chains": []string{"Proxy", "proxy-a"}, "download": 100, "upload": 10, "start": "2026-05-30T10:00:00Z",
+						"metadata": map[string]any{"host": "google.com", "network": "tcp", "type": "TProxy", "sourceIP": "192.168.10.2", "destinationIP": "28.0.0.8", "destinationPort": "443"},
+					},
+					{
+						"id": "c2", "rule": "DIRECT", "chains": []string{"DIRECT"}, "download": 50, "upload": 5,
+						"metadata": map[string]any{"host": "local.lan", "network": "udp", "type": "Redirect", "sourceIP": "192.168.10.3", "destinationIP": "192.168.10.1", "destinationPort": "53"},
+					},
+				},
+			})
+		case "/proxies":
+			_ = json.NewEncoder(w).Encode(map[string]any{"proxies": map[string]any{
+				"Proxy":   map[string]any{"name": "Proxy", "type": "Selector", "now": "proxy-a", "all": []string{"proxy-a", "DIRECT"}},
+				"proxy-a": map[string]any{"name": "proxy-a", "type": "Shadowsocks", "udp": true, "history": []map[string]any{{"delay": 42}}},
+				"DIRECT":  map[string]any{"name": "DIRECT", "type": "Direct"},
+			}})
+		case "/proxies/Proxy":
+			_ = json.NewEncoder(w).Encode(map[string]any{"updated": true})
+		case "/rules":
+			_ = json.NewEncoder(w).Encode(map[string]any{"rules": []any{
+				map[string]any{"type": "DOMAIN-SUFFIX", "payload": "google.com", "proxy": "Proxy", "provider": "geosite"},
+				map[string]any{"type": "GEOIP", "payload": "CN", "proxy": "DIRECT"},
+			}})
+		case "/providers/proxies":
+			_ = json.NewEncoder(w).Encode(map[string]any{"providers": map[string]any{
+				"airport": map[string]any{"name": "airport", "vehicleType": "HTTP", "updatedAt": "2026-05-30T10:00:00Z", "proxies": []any{}},
+			}})
+		case "/providers/proxies/airport":
+			_ = json.NewEncoder(w).Encode(map[string]any{"name": "airport", "vehicleType": "HTTP", "updatedAt": "2026-05-30T10:00:00Z", "proxies": []any{}})
+		case "/providers/proxies/airport/healthcheck":
+			_ = json.NewEncoder(w).Encode(map[string]any{"healthcheck": true, "updatedAt": "2026-05-30T10:00:00Z"})
+		case "/providers/rules":
+			_ = json.NewEncoder(w).Encode(map[string]any{"providers": map[string]any{
+				"directlist": map[string]any{"name": "directlist", "vehicleType": "HTTP", "updatedAt": "2026-05-30T10:00:00Z", "rules": []any{}},
+			}})
+		case "/providers/rules/directlist":
+			_ = json.NewEncoder(w).Encode(map[string]any{"name": "directlist", "vehicleType": "HTTP", "updatedAt": "2026-05-30T10:00:00Z", "rules": []any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
 }
 
 func newTestApp(t *testing.T) *App {

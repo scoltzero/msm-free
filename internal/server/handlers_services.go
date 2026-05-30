@@ -77,11 +77,7 @@ func (a *App) handleServiceConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleProxySummary(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"core":   "mihomo",
-		"mihomo": a.Services.Status("mihomo"),
-		"mosdns": a.Services.Status("mosdns"),
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.proxySnapshot()})
 }
 
 func normalizeServiceName(name string) string {
