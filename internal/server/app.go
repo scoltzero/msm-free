@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -118,6 +119,16 @@ func (a *App) Router() http.Handler {
 
 func (a *App) withCommonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				log.Printf("panic serving %s %s: %v\n%s", r.Method, r.URL.Path, recovered, debug.Stack())
+				if strings.HasPrefix(r.URL.Path, apiPrefix) {
+					writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+					return
+				}
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+		}()
 		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")

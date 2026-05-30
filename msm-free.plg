@@ -1,21 +1,22 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name "msm-free">
 <!ENTITY author "luochuhan">
-<!ENTITY version "0.1.4">
+<!ENTITY version "0.1.5">
 <!ENTITY githubRepo "scoltzero/msm-free">
-<!ENTITY releaseTag "v0.1.4">
-<!ENTITY packageName "msm-free-0.1.4-x86_64-1">
+<!ENTITY releaseTag "v0.1.5">
+<!ENTITY packageName "msm-free-0.1.5-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "b3f1cd2a326923eabb59c0a328b0265102adc5c6837dfebf7e3d7e68015bae17">
+<!ENTITY packageSHA256 "62961b494719682f53a00e3c99ef205e7a90c431a28eac128de83787aa0854ec">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
-### msm-free 0.1.4
-- Aligns base MSM-style management pages: process management, global config management, logs, users, diagnostics, and settings.
-- Adds service batch start/stop/restart, wait polling, detailed status fields, structured log filtering, ZIP log download, and config history/rollback metadata.
-- Adds user pagination/filtering, role validation, last-admin protection, API token audit, audit log API, diagnostics download, and split profile/appearance settings.
+### msm-free 0.1.5
+- Fixes the blank page / empty response risk after first initialization by returning setup activation immediately and restoring runtime services in the background.
+- Adds timeouts around nftables and policy-routing commands so external command hangs cannot block the Web UI.
+- Serves the SPA entry with no-store cache headers and adds stale chunk recovery for upgraded frontend assets.
+- Makes setup component downloads honor skip-if-exists.
     ]]>
   </CHANGES>
 
@@ -55,8 +56,8 @@ set +e
 if [ -x /etc/rc.d/rc.msm-free ]; then
   /etc/rc.d/rc.msm-free stop
 fi
-removepkg msm-free-0.1.4-x86_64-1
-rm -f /boot/config/plugins/msm-free/msm-free-0.1.4-x86_64-1.txz
+removepkg msm-free-0.1.5-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-0.1.5-x86_64-1.txz
 echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
       ]]>
     </INLINE>

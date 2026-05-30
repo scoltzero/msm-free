@@ -123,12 +123,20 @@ func serve(dataDir, host string, port int) error {
 	}
 	defer os.Remove(filepath.Join(dataDir, "msm-free.pid"))
 
-	app.RestoreConfiguredRuntime(context.Background())
+	go func() {
+		restoreCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		report := app.RestoreConfiguredRuntime(restoreCtx)
+		if len(report.Errors) > 0 {
+			log.Printf("runtime restore completed with errors: %v", report.Errors)
+		}
+	}()
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", host, port),
 		Handler:           app.Router(),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

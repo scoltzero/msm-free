@@ -11,7 +11,7 @@ Generated files:
 Build:
 
 ```bash
-make unraid VERSION=0.1.4 UNRAID_VERSION=0.1.4 GITHUB_REPO=<owner>/msm-free RELEASE_TAG=v0.1.4
+make unraid VERSION=0.1.5 UNRAID_VERSION=0.1.5 GITHUB_REPO=<owner>/msm-free RELEASE_TAG=v0.1.5
 ```
 
 Publish the generated `.txz` package to the GitHub release named by `RELEASE_TAG`, then commit the generated root `msm-free.plg`.
@@ -19,10 +19,10 @@ Publish the generated `.txz` package to the GitHub release named by `RELEASE_TAG
 Example:
 
 ```bash
-gh release create v0.1.4 \
-  dist/unraid/msm-free-0.1.4-x86_64-1.txz \
+gh release create v0.1.5 \
+  dist/unraid/msm-free-0.1.5-x86_64-1.txz \
   dist/msm-free-linux-amd64.tar.gz \
-  --title "msm-free v0.1.4" \
+  --title "msm-free v0.1.5" \
   --notes "Initial msm-free x86_64 and Unraid plugin release."
 ```
 

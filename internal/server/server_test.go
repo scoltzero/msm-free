@@ -118,6 +118,42 @@ func TestSafePathRejectsEscape(t *testing.T) {
 	}
 }
 
+func TestStaticSetupRouteServesFreshSPAEntry(t *testing.T) {
+	app := newTestApp(t)
+	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
+	res := httptest.NewRecorder()
+	app.Router().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("setup route status=%d body=%s", res.Code, res.Body.String())
+	}
+	if got := res.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("setup route should disable HTML cache, got %q", got)
+	}
+	if body := res.Body.String(); !strings.Contains(body, "msm-free-spa-recovery") || !strings.Contains(body, "id=\"root\"") {
+		t.Fatalf("setup route did not serve recovered SPA index:\n%s", body)
+	}
+}
+
+func TestSetupDownloadSkipIfExists(t *testing.T) {
+	app := newTestApp(t)
+	target := app.componentTarget("mihomo")
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/setup/download/mihomo?skip_if_exists=1", nil)
+	res := httptest.NewRecorder()
+	app.Router().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("download status=%d body=%s", res.Code, res.Body.String())
+	}
+	if body := res.Body.String(); !strings.Contains(body, `"status":"skipped"`) {
+		t.Fatalf("expected skipped download event, got:\n%s", body)
+	}
+}
+
 func TestLicenseStatusIsFreeUnlocked(t *testing.T) {
 	app := newTestApp(t)
 	res := requestJSON(t, app, http.MethodGet, "/api/v1/license-activation/status", "", nil)

@@ -186,8 +186,7 @@ func (a *App) applyNFT(ctx context.Context) (string, error) {
 		{"ip", "-6", "route", "add", "local", "::/0", "dev", "lo", "table", "100"},
 	}
 	for _, args := range cmds {
-		cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-		out, err := cmd.CombinedOutput()
+		out, err := combinedOutputWithTimeout(ctx, 8*time.Second, args[0], args[1:]...)
 		if len(out) > 0 {
 			output.Write(out)
 			if output.Len() > 0 && !bytes.HasSuffix(output.Bytes(), []byte("\n")) {
@@ -227,8 +226,7 @@ func (a *App) clearNFT(ctx context.Context) (string, error) {
 		{"ip", "-6", "route", "del", "local", "::/0", "dev", "lo", "table", "100"},
 	}
 	for _, args := range cmds {
-		cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-		out, _ := cmd.CombinedOutput()
+		out, _ := combinedOutputWithTimeout(ctx, 5*time.Second, args[0], args[1:]...)
 		if len(out) > 0 {
 			output.Write(out)
 			if output.Len() > 0 && !bytes.HasSuffix(output.Bytes(), []byte("\n")) {
@@ -244,11 +242,11 @@ func (a *App) nftStatus() map[string]any {
 	if runtime.GOOS != "linux" {
 		return status
 	}
-	if out, err := exec.Command("nft", "list", "table", "inet", "msm_free").CombinedOutput(); err == nil {
+	if out, err := combinedOutputWithTimeout(context.Background(), 3*time.Second, "nft", "list", "table", "inet", "msm_free"); err == nil {
 		status["table_loaded"] = true
 		status["nft"] = string(out)
 	}
-	if out, err := exec.Command("ip", "rule", "show").CombinedOutput(); err == nil {
+	if out, err := combinedOutputWithTimeout(context.Background(), 3*time.Second, "ip", "rule", "show"); err == nil {
 		text := string(out)
 		status["rule_loaded"] = strings.Contains(text, "fwmark 0x1") && strings.Contains(text, "lookup 100")
 		status["ip_rules"] = text
@@ -256,8 +254,23 @@ func (a *App) nftStatus() map[string]any {
 	return status
 }
 
+func combinedOutputWithTimeout(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	cmd := exec.CommandContext(cmdCtx, name, args...)
+	out, err := cmd.CombinedOutput()
+	if cmdCtx.Err() == context.DeadlineExceeded {
+		return out, fmt.Errorf("%s %s timed out after %s", name, strings.Join(args, " "), timeout)
+	}
+	return out, err
+}
+
 func (a *App) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
-	rows, _ := a.DB.Query(`select key,value from settings`)
+	rows, err := a.DB.Query(`select key,value from settings`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db_error", err.Error())
+		return
+	}
 	defer rows.Close()
 	settings := map[string]string{}
 	for rows.Next() {

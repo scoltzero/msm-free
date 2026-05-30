@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -167,8 +169,22 @@ func (a *App) handleSetupInitialize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleSetupActivate(w http.ResponseWriter, r *http.Request) {
-	report := a.RestoreConfiguredRuntime(r.Context())
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "port_changed": false, "port": 7777, "runtime": report})
+	report := RuntimeRestoreReport{Initialized: a.IsInitialized()}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		restored := a.RestoreConfiguredRuntime(ctx)
+		if len(restored.Errors) > 0 {
+			log.Printf("setup activation completed with errors: %s", strings.Join(restored.Errors, "; "))
+		}
+	}()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":            true,
+		"port_changed":       false,
+		"port":               7777,
+		"activation_pending": true,
+		"runtime":            report,
+	})
 }
 
 func (a *App) handleSetupReset(w http.ResponseWriter, r *http.Request) {
@@ -214,9 +230,26 @@ func (a *App) handleSetupDownload(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+	if isTruthy(r.URL.Query().Get("skip_if_exists")) {
+		if target := a.componentTarget(component); target != "" {
+			if _, err := os.Stat(target); err == nil {
+				emit(DownloadEvent{Status: "skipped", Progress: 100, Message: component + " already installed"})
+				return
+			}
+		}
+	}
 	err := a.installComponent(component, emit)
 	if err != nil {
 		emit(DownloadEvent{Status: "failed", Progress: 0, Message: err.Error()})
+	}
+}
+
+func isTruthy(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
 	}
 }
 

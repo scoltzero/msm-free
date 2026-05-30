@@ -33,14 +33,37 @@ func (a *App) registerStatic(mux *http.ServeMux) {
 			return
 		}
 		if r.URL.Path != "/" {
-			if _, err := fs.Stat(sub, strings.TrimPrefix(r.URL.Path, "/")); err == nil {
+			rel := strings.TrimPrefix(r.URL.Path, "/")
+			if rel == "index.html" {
+				serveFrontendIndex(w, sub)
+				return
+			}
+			if _, err := fs.Stat(sub, rel); err == nil {
 				fileServer.ServeHTTP(w, r)
 				return
 			}
 		}
-		r.URL.Path = "/"
-		fileServer.ServeHTTP(w, r)
+		serveFrontendIndex(w, sub)
 	})
+}
+
+func serveFrontendIndex(w http.ResponseWriter, fsys fs.FS) {
+	body, err := fs.ReadFile(fsys, "index.html")
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "frontend index.html not found")
+		return
+	}
+	html := string(body)
+	if !strings.Contains(html, "msm-free-spa-recovery") {
+		if strings.Contains(html, "</head>") {
+			html = strings.Replace(html, "</head>", frontendSPARecoveryScript+"</head>", 1)
+		} else {
+			html = frontendSPARecoveryScript + html
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte(html))
 }
 
 func (a *App) handleMihomoUIAsset(w http.ResponseWriter, r *http.Request) {
@@ -159,6 +182,43 @@ const zashboardAutoBackendScript = `<script id="msm-free-zashboard-auto-backend"
   } catch (err) {
     console.warn("msm-free zashboard backend preset failed", err)
   }
+})()
+</script>
+`
+
+const frontendSPARecoveryScript = `<script id="msm-free-spa-recovery">
+;(function () {
+  var reloadKey = "msm-free-spa-reload-at"
+  function reloadOnce() {
+    try {
+      var last = Number(sessionStorage.getItem(reloadKey) || "0")
+      if (Date.now() - last < 15000) return
+      sessionStorage.setItem(reloadKey, String(Date.now()))
+    } catch (_) {}
+    var reload = function () { window.location.reload() }
+    try {
+      if ("caches" in window) {
+        caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (key) { return caches.delete(key) }))
+        }).finally(reload)
+        return
+      }
+    } catch (_) {}
+    reload()
+  }
+  window.addEventListener("vite:preloadError", function (event) {
+    event.preventDefault()
+    reloadOnce()
+  })
+  window.addEventListener("unhandledrejection", function (event) {
+    var reason = event && event.reason
+    var message = String((reason && (reason.message || reason.stack)) || reason || "")
+    if (message.indexOf("Failed to fetch dynamically imported module") !== -1 ||
+        message.indexOf("Importing a module script failed") !== -1 ||
+        message.indexOf("error loading dynamically imported module") !== -1) {
+      reloadOnce()
+    }
+  })
 })()
 </script>
 `

@@ -13,9 +13,10 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Aligns base MSM-style management pages: process management, global config management, logs, users, diagnostics, and settings.
-- Adds service batch start/stop/restart, wait polling, detailed status fields, structured log filtering, ZIP log download, and config history/rollback metadata.
-- Adds user pagination/filtering, role validation, last-admin protection, API token audit, audit log API, diagnostics download, and split profile/appearance settings.
+- Fixes the blank page / empty response risk after first initialization by returning setup activation immediately and restoring runtime services in the background.
+- Adds timeouts around nftables and policy-routing commands so external command hangs cannot block the Web UI.
+- Serves the SPA entry with no-store cache headers and adds stale chunk recovery for upgraded frontend assets.
+- Makes setup component downloads honor skip-if-exists.
     ]]>
   </CHANGES>
 
