@@ -13,10 +13,9 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Fixes the blank page / empty response risk after first initialization by returning setup activation immediately and restoring runtime services in the background.
-- Adds timeouts around nftables and policy-routing commands so external command hangs cannot block the Web UI.
-- Serves the SPA entry with no-store cache headers and adds stale chunk recovery for upgraded frontend assets.
-- Makes setup component downloads honor skip-if-exists.
+- Fixes setup wizard blank screen after the timezone/system-settings step by returning network interfaces in the data shape expected by the exported MSM WebUI.
+- Adds setup network interface display fields for IP address and speed.
+- Keeps the existing v0.1.5 protections for async setup activation, nft/ip command timeouts, no-store SPA entry, and stale chunk recovery.
     ]]>
   </CHANGES>
 

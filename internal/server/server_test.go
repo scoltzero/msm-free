@@ -134,6 +134,32 @@ func TestStaticSetupRouteServesFreshSPAEntry(t *testing.T) {
 	}
 }
 
+func TestSetupNetworkInterfacesResponseMatchesExportedWebUI(t *testing.T) {
+	app := newTestApp(t)
+	res := requestJSON(t, app, http.MethodGet, "/api/v1/setup/network-interfaces", "", nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("network interfaces status=%d body=%s", res.Code, res.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	data, ok := body["data"].([]any)
+	if !ok {
+		t.Fatalf("exported WebUI expects data array, got %#v", body["data"])
+	}
+	interfaces, ok := body["interfaces"].([]any)
+	if !ok || len(interfaces) != len(data) {
+		t.Fatalf("interfaces and data should both expose the same array: %#v", body)
+	}
+	if len(data) > 0 {
+		item, ok := data[0].(map[string]any)
+		if !ok || item["name"] == nil || item["ip"] == nil || item["speed"] == nil {
+			t.Fatalf("interface rows should include name/ip/speed for setup UI: %#v", data[0])
+		}
+	}
+}
+
 func TestSetupDownloadSkipIfExists(t *testing.T) {
 	app := newTestApp(t)
 	target := app.componentTarget("mihomo")

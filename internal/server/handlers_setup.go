@@ -50,6 +50,7 @@ func (a *App) handleSetupNetworkInterfaces(w http.ResponseWriter, r *http.Reques
 		for _, addr := range addrs {
 			ips = append(ips, addr.String())
 		}
+		ip := primaryInterfaceIP(ips)
 		out = append(out, map[string]any{
 			"name":        iface.Name,
 			"index":       iface.Index,
@@ -58,9 +59,12 @@ func (a *App) handleSetupNetworkInterfaces(w http.ResponseWriter, r *http.Reques
 			"is_up":       iface.Flags&net.FlagUp != 0,
 			"is_loopback": iface.Flags&net.FlagLoopback != 0,
 			"addresses":   ips,
+			"ip":          ip,
+			"primary_ip":  ip,
+			"speed":       interfaceSpeed(iface.Name),
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": out})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": out, "data": out})
 }
 
 func (a *App) handleSetupPrivilege(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +255,52 @@ func isTruthy(value string) bool {
 	default:
 		return false
 	}
+}
+
+func primaryInterfaceIP(addresses []string) string {
+	for _, addr := range addresses {
+		host := addr
+		if strings.Contains(addr, "/") {
+			if ip, _, err := net.ParseCIDR(addr); err == nil {
+				host = ip.String()
+			}
+		}
+		ip := net.ParseIP(host)
+		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			continue
+		}
+		if ip.To4() != nil {
+			return ip.String()
+		}
+	}
+	for _, addr := range addresses {
+		host := addr
+		if strings.Contains(addr, "/") {
+			if ip, _, err := net.ParseCIDR(addr); err == nil {
+				host = ip.String()
+			}
+		}
+		ip := net.ParseIP(host)
+		if ip != nil && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() {
+			return ip.String()
+		}
+	}
+	return ""
+}
+
+func interfaceSpeed(name string) string {
+	if runtime.GOOS != "linux" || name == "" {
+		return "unknown"
+	}
+	b, err := os.ReadFile(filepath.Join("/sys/class/net", name, "speed"))
+	if err != nil {
+		return "unknown"
+	}
+	value := strings.TrimSpace(string(b))
+	if value == "" || value == "-1" {
+		return "unknown"
+	}
+	return value + " Mbps"
 }
 
 func hostname() string {
