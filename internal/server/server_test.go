@@ -164,6 +164,57 @@ func TestMosDNSObservabilityAndRuleCategories(t *testing.T) {
 	}
 }
 
+func TestMosDNSRuleSourceManagementAndUpdate(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	ruleServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("domain:example.com\nkeyword:ads\n# ignored\nfull:test.example\n"))
+	}))
+	defer ruleServer.Close()
+
+	create := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/rule-sets", token, map[string]any{
+		"source_type": "adguard",
+		"name":        "unit-adguard",
+		"type":        "adguard",
+		"url":         ruleServer.URL + "/rules.txt",
+		"enabled":     true,
+	})
+	if create.Code != http.StatusCreated {
+		t.Fatalf("create source status=%d body=%s", create.Code, create.Body.String())
+	}
+	var created map[string]any
+	_ = json.Unmarshal(create.Body.Bytes(), &created)
+	source := created["data"].(map[string]any)
+	id := source["id"].(string)
+	list := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/rule-sets?source_type=adguard", token, nil)
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "unit-adguard") || !strings.Contains(list.Body.String(), ruleServer.URL) {
+		t.Fatalf("rule source list missing created source: status=%d body=%s", list.Code, list.Body.String())
+	}
+	update := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/rule-sets/"+id+"/update", token, nil)
+	if update.Code != http.StatusOK || !strings.Contains(update.Body.String(), `"success":true`) || !strings.Contains(update.Body.String(), `"rule_count":3`) {
+		t.Fatalf("rule source update failed: status=%d body=%s", update.Code, update.Body.String())
+	}
+	local := filepath.Join(app.DataDir, "configs/mosdns/adguard", id+".rules")
+	b, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "domain:example.com") {
+		t.Fatalf("downloaded rule file mismatch: %s", string(b))
+	}
+	cats := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/rules/categories", token, nil)
+	if cats.Code != http.StatusOK || !strings.Contains(cats.Body.String(), `"id":"adguard"`) {
+		t.Fatalf("categories missing adguard source count: %s", cats.Body.String())
+	}
+	del := requestJSON(t, app, http.MethodDelete, "/api/v1/mosdns/rule-sets/"+id+"?delete_file=true", token, nil)
+	if del.Code != http.StatusOK {
+		t.Fatalf("delete source status=%d body=%s", del.Code, del.Body.String())
+	}
+	if _, err := os.Stat(local); !os.IsNotExist(err) {
+		t.Fatalf("expected local rule file deleted, err=%v", err)
+	}
+}
+
 func TestRolePermissionsMatchMSMModel(t *testing.T) {
 	app := newTestApp(t)
 	operator := tokenForRole(t, app, "operator")

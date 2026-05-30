@@ -171,7 +171,7 @@ func (a *App) downloadProxyURL() *url.URL {
 }
 
 func (a *App) rewriteDownloadURL(raw string) string {
-	if a == nil || a.DB == nil || !strings.Contains(raw, "github.com/") {
+	if a == nil || a.DB == nil || (!strings.Contains(raw, "github.com/") && !strings.Contains(raw, "githubusercontent.com/")) {
 		return raw
 	}
 	var enabled bool

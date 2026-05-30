@@ -58,6 +58,22 @@ func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/mosdns/query-logs", a.handleMosDNSQueryLog)
 	mux.HandleFunc("GET /api/v1/mosdns/query-meta", a.handleMosDNSQueryMeta)
 	mux.HandleFunc("GET /api/v1/mosdns/rule-sets", a.handleMosDNSRuleSets)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sets", a.handleMosDNSRuleSourceCreate)
+	mux.HandleFunc("GET /api/v1/mosdns/rule-sets/{id}", a.handleMosDNSRuleSourceGet)
+	mux.HandleFunc("PUT /api/v1/mosdns/rule-sets/{id}", a.handleMosDNSRuleSourcePut)
+	mux.HandleFunc("PATCH /api/v1/mosdns/rule-sets/{id}", a.handleMosDNSRuleSourcePut)
+	mux.HandleFunc("DELETE /api/v1/mosdns/rule-sets/{id}", a.handleMosDNSRuleSourceDelete)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sets/{id}/update", a.handleMosDNSRuleSourceUpdate)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sets/update", a.handleMosDNSRuleSourcesUpdateAll)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sets/refresh", a.handleMosDNSRuleSourcesUpdateAll)
+	mux.HandleFunc("GET /api/v1/mosdns/rule-sources", a.handleMosDNSRuleSets)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sources", a.handleMosDNSRuleSourceCreate)
+	mux.HandleFunc("GET /api/v1/mosdns/rule-sources/{id}", a.handleMosDNSRuleSourceGet)
+	mux.HandleFunc("PUT /api/v1/mosdns/rule-sources/{id}", a.handleMosDNSRuleSourcePut)
+	mux.HandleFunc("PATCH /api/v1/mosdns/rule-sources/{id}", a.handleMosDNSRuleSourcePut)
+	mux.HandleFunc("DELETE /api/v1/mosdns/rule-sources/{id}", a.handleMosDNSRuleSourceDelete)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sources/{id}/update", a.handleMosDNSRuleSourceUpdate)
+	mux.HandleFunc("POST /api/v1/mosdns/rule-sources/update", a.handleMosDNSRuleSourcesUpdateAll)
 	mux.HandleFunc("GET /api/v1/mosdns/audit", a.handleMosDNSAudit)
 	mux.HandleFunc("GET /api/v1/mosdns/audit/rank", a.handleMosDNSAuditRank)
 	mux.HandleFunc("GET /api/v1/mosdns/audit/ranks", a.handleMosDNSAuditRank)
@@ -402,6 +418,10 @@ func (a *App) handleMosDNSRuleGet(w http.ResponseWriter, r *http.Request) {
 		a.handleMosDNSRuleCategories(w, r)
 		return
 	}
+	if path == "online" || path == "adguard" || path == "sources" || path == "rule-sets" {
+		a.writeMosDNSRuleSources(w, r)
+		return
+	}
 	parts := strings.Split(path, "/")
 	category := parts[0]
 	if len(parts) > 1 && parts[1] == "export" {
@@ -556,8 +576,7 @@ func (a *App) handleMosDNSQueryMeta(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSRuleSets(w http.ResponseWriter, r *http.Request) {
-	sets := a.mosDNSRuleSets()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "rule_sets": sets, "data": map[string]any{"rule_sets": sets}})
+	a.writeMosDNSRuleSources(w, r)
 }
 
 func (a *App) handleMosDNSAudit(w http.ResponseWriter, r *http.Request) {
@@ -846,10 +865,17 @@ func (a *App) handleMosDNSRuleCategories(w http.ResponseWriter, r *http.Request)
 	}
 	items := make([]map[string]any, 0, len(defs))
 	for _, def := range defs {
+		count := len(a.readMosDNSRulePatterns(def.ID))
+		if def.ID == "adguard" {
+			count = a.mosDNSRuleSourceCount("adguard")
+		}
+		if def.ID == "online" {
+			count = a.mosDNSRuleSourceCount("srs")
+		}
 		items = append(items, map[string]any{
 			"id":    def.ID,
 			"name":  def.Name,
-			"count": len(a.readMosDNSRulePatterns(def.ID)),
+			"count": count,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items})
