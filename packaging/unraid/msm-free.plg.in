@@ -13,9 +13,9 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Aligns MosDNS overview, rules, clients, DNS query logs, system tools, config management, and realtime logs with MSM-style panel behavior.
-- Prioritizes MosDNS 9099 WebInfo/query/cache data, with local log fallback when 9099 is unavailable.
-- Adds client allow/deny/disabled/unscanned zones, whitelist file sync, routing rule generation, config history, and rule source reload warnings.
+- Aligns base MSM-style management pages: process management, global config management, logs, users, diagnostics, and settings.
+- Adds service batch start/stop/restart, wait polling, detailed status fields, structured log filtering, ZIP log download, and config history/rollback metadata.
+- Adds user pagination/filtering, role validation, last-admin protection, API token audit, audit log API, diagnostics download, and split profile/appearance settings.
     ]]>
   </CHANGES>
 

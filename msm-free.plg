@@ -7,15 +7,15 @@
 <!ENTITY packageName "msm-free-0.1.4-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "f08bca39c91c3b5e6d101cd82cfc92bc9887804c2171b2fe81e8b3b74650d5ff">
+<!ENTITY packageSHA256 "b3f1cd2a326923eabb59c0a328b0265102adc5c6837dfebf7e3d7e68015bae17">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
 ### msm-free 0.1.4
-- Aligns MosDNS overview, rules, clients, DNS query logs, system tools, config management, and realtime logs with MSM-style panel behavior.
-- Prioritizes MosDNS 9099 WebInfo/query/cache data, with local log fallback when 9099 is unavailable.
-- Adds client allow/deny/disabled/unscanned zones, whitelist file sync, routing rule generation, config history, and rule source reload warnings.
+- Aligns base MSM-style management pages: process management, global config management, logs, users, diagnostics, and settings.
+- Adds service batch start/stop/restart, wait polling, detailed status fields, structured log filtering, ZIP log download, and config history/rollback metadata.
+- Adds user pagination/filtering, role validation, last-admin protection, API token audit, audit log API, diagnostics download, and split profile/appearance settings.
     ]]>
   </CHANGES>
 
