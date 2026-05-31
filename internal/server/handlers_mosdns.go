@@ -21,6 +21,7 @@ import (
 func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/mosdns/status", a.handleMosDNSStatus)
 	mux.HandleFunc("GET /api/v1/mosdns/overview", a.handleMosDNSOverview)
+	mux.HandleFunc("GET /api/v1/mosdns/overview/dashboard", a.handleMosDNSOverview)
 	mux.HandleFunc("GET /api/v1/mosdns/stats", a.handleMosDNSStats)
 	mux.HandleFunc("GET /api/v1/mosdns/metrics", a.handleMosDNSMetrics)
 	mux.HandleFunc("GET /api/v1/mosdns/version", a.handleMosDNSVersion)
@@ -50,6 +51,8 @@ func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/mosdns/client-proxy-mode", a.handleMosDNSClientProxyModePut)
 
 	mux.HandleFunc("GET /api/v1/mosdns/rules", a.handleMosDNSRules)
+	mux.HandleFunc("POST /api/v1/mosdns/rules/{type}/import", a.handleMosDNSRuleImport)
+	mux.HandleFunc("GET /api/v1/mosdns/rules/{type}/export", a.handleMosDNSRuleExport)
 	mux.HandleFunc("GET /api/v1/mosdns/rules/{path...}", a.handleMosDNSRuleGet)
 	mux.HandleFunc("PUT /api/v1/mosdns/rules/{path...}", a.handleMosDNSRulePut)
 	mux.HandleFunc("POST /api/v1/mosdns/rules/{path...}", a.handleMosDNSRulePut)
@@ -606,6 +609,42 @@ func (a *App) handleMosDNSRuleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	items := a.readMosDNSRuleItems(category)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items, "rules": items})
+}
+
+func (a *App) handleMosDNSRuleExport(w http.ResponseWriter, r *http.Request) {
+	category := strings.TrimSpace(r.PathValue("type"))
+	content, _ := a.readTextFile(mosDNSRuleCategoryFile(category))
+	filename := fmt.Sprintf("mosdns-%s-rules.txt", filepath.Base(firstNonEmpty(category, "whitelist")))
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	_, _ = w.Write([]byte(content))
+}
+
+func (a *App) handleMosDNSRuleImport(w http.ResponseWriter, r *http.Request) {
+	category := strings.TrimSpace(r.PathValue("type"))
+	content, appendMode, err := readMosDNSRuleImportRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	imported := splitNonEmptyLines(content)
+	patterns := imported
+	if appendMode {
+		patterns = append(a.readMosDNSRulePatterns(category), imported...)
+	}
+	if err := a.writeMosDNSRulePatterns(category, patterns); err != nil {
+		writeError(w, http.StatusBadRequest, "write_failed", err.Error())
+		return
+	}
+	items := a.readMosDNSRuleItems(category)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":          true,
+		"data":             items,
+		"rules":            items,
+		"imported":         len(imported),
+		"total":            len(items),
+		"restart_required": true,
+	})
 }
 
 func (a *App) handleMosDNSRulePut(w http.ResponseWriter, r *http.Request) {
@@ -1245,6 +1284,70 @@ func (a *App) writeMosDNSRulePatterns(category string, patterns []string) error 
 		content += "\n"
 	}
 	return a.writeTextFile(mosDNSRuleCategoryFile(category), content)
+}
+
+func readMosDNSRuleImportRequest(r *http.Request) (string, bool, error) {
+	appendMode := queryBool(r, "append", false)
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	if strings.Contains(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(16 << 20); err != nil {
+			return "", appendMode, err
+		}
+		if raw := strings.TrimSpace(r.FormValue("append")); raw != "" {
+			appendMode = raw == "1" || raw == "true" || raw == "yes" || raw == "on"
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			return "", appendMode, err
+		}
+		defer file.Close()
+		b, err := io.ReadAll(io.LimitReader(file, 16<<20))
+		return string(b), appendMode, err
+	}
+
+	b, err := io.ReadAll(io.LimitReader(r.Body, 16<<20))
+	if err != nil {
+		return "", appendMode, err
+	}
+	defer r.Body.Close()
+	if !strings.Contains(contentType, "application/json") {
+		return string(b), appendMode, nil
+	}
+	var req struct {
+		Content  string   `json:"content"`
+		Text     string   `json:"text"`
+		Rule     string   `json:"rule"`
+		Pattern  string   `json:"pattern"`
+		Rules    []string `json:"rules"`
+		Patterns []string `json:"patterns"`
+		Items    []struct {
+			Pattern string `json:"pattern"`
+			Content string `json:"content"`
+			Name    string `json:"name"`
+			Value   string `json:"value"`
+		} `json:"items"`
+		Mode   string `json:"mode"`
+		Append bool   `json:"append"`
+	}
+	if err := json.Unmarshal(b, &req); err != nil {
+		return "", appendMode, err
+	}
+	if req.Append || strings.EqualFold(req.Mode, "append") {
+		appendMode = true
+	}
+	lines := make([]string, 0, len(req.Rules)+len(req.Patterns)+len(req.Items)+4)
+	for _, value := range []string{req.Content, req.Text, req.Rule, req.Pattern} {
+		lines = append(lines, splitNonEmptyLines(value)...)
+	}
+	lines = append(lines, req.Rules...)
+	lines = append(lines, req.Patterns...)
+	for _, item := range req.Items {
+		value := firstNonEmpty(item.Pattern, item.Content, item.Name, item.Value)
+		if value != "" {
+			lines = append(lines, value)
+		}
+	}
+	return strings.Join(lines, "\n"), appendMode, nil
 }
 
 func (a *App) readMosDNSRuleItems(category string) []map[string]any {

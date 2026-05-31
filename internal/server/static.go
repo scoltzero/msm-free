@@ -3,7 +3,9 @@ package server
 import (
 	"embed"
 	"io/fs"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +16,7 @@ var frontendFS embed.FS
 
 func (a *App) registerStatic(mux *http.ServeMux) {
 	mux.HandleFunc("GET /ui", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/ui/", http.StatusFound)
+		http.Redirect(w, r, a.zashboardSetupURL(r), http.StatusFound)
 	})
 	mux.HandleFunc("GET /ui/{path...}", a.handleMihomoUIAsset)
 
@@ -89,7 +91,7 @@ func (a *App) handleMihomoUIAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := os.Stat(abs); err == nil {
 		if rel == "index.html" {
-			serveZashboardIndex(w, abs)
+			a.serveZashboardIndex(w, r, abs)
 			return
 		}
 		http.ServeFile(w, r, abs)
@@ -103,7 +105,7 @@ func (a *App) handleMihomoUIAsset(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(mihomoFallbackDashboardHTML))
 }
 
-func serveZashboardIndex(w http.ResponseWriter, path string) {
+func (a *App) serveZashboardIndex(w http.ResponseWriter, r *http.Request, path string) {
 	body, err := os.ReadFile(path)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "not_found", err.Error())
@@ -111,15 +113,49 @@ func serveZashboardIndex(w http.ResponseWriter, path string) {
 	}
 	html := string(body)
 	if !strings.Contains(html, "msm-free-zashboard-auto-backend") {
+		script := a.zashboardAutoBackendScript(r)
 		if strings.Contains(html, "</head>") {
-			html = strings.Replace(html, "</head>", zashboardAutoBackendScript+"</head>", 1)
+			html = strings.Replace(html, "</head>", script+"</head>", 1)
 		} else {
-			html = zashboardAutoBackendScript + html
+			html = script + html
 		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(html))
+}
+
+func (a *App) zashboardSetupURL(r *http.Request) string {
+	return "/ui/#/setup?" + a.zashboardSetupQuery(r)
+}
+
+func (a *App) zashboardExternalSetupURL(r *http.Request) string {
+	host := requestHostName(r)
+	return "http://" + net.JoinHostPort(host, "9090") + "/ui/#/setup?" + a.zashboardSetupQuery(r)
+}
+
+func (a *App) zashboardSetupQuery(r *http.Request) string {
+	host := requestHostName(r)
+	q := "hostname=" + urlQueryEscape(host) + "&port=9090&disableUpgradeCore=1"
+	if secret := a.mihomoSecret(); secret != "" {
+		q += "&secret=" + urlQueryEscape(secret)
+	}
+	return q
+}
+
+func requestHostName(r *http.Request) string {
+	host := r.Host
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); forwarded != "" {
+		host = forwarded
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" {
+		return "127.0.0.1"
+	}
+	return host
 }
 
 func serveJavaScript(w http.ResponseWriter, body string) {
@@ -128,13 +164,27 @@ func serveJavaScript(w http.ResponseWriter, body string) {
 	_, _ = w.Write([]byte(body))
 }
 
-const zashboardAutoBackendScript = `<script id="msm-free-zashboard-auto-backend">
+func (a *App) zashboardAutoBackendScript(r *http.Request) string {
+	secret := a.mihomoSecret()
+	if secret != "" {
+		secret = urlQueryEscape(secret)
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(zashboardAutoBackendScriptTemplate, "__MSM_FREE_HOST__", urlQueryEscape(requestHostName(r))), "__MSM_FREE_SECRET__", secret)
+}
+
+func urlQueryEscape(value string) string {
+	return url.QueryEscape(value)
+}
+
+const zashboardAutoBackendScriptTemplate = `<script id="msm-free-zashboard-auto-backend">
 ;(function () {
   try {
     if (!window.localStorage) return
     var listKey = "setup/api-list"
     var activeKey = "setup/active-uuid"
-    var host = window.location.hostname || "127.0.0.1"
+    var presetHost = decodeURIComponent("__MSM_FREE_HOST__")
+    var presetSecret = decodeURIComponent("__MSM_FREE_SECRET__")
+    var host = presetHost || window.location.hostname || "127.0.0.1"
     var loopback = function (value) {
       return value === "127.0.0.1" || value === "localhost" || value === "::1" || value === "0.0.0.0"
     }
@@ -166,7 +216,7 @@ const zashboardAutoBackendScript = `<script id="msm-free-zashboard-auto-backend"
       secondaryPath: "",
       host: host,
       port: "9090",
-      password: "",
+      password: presetSecret,
       label: "msm-free",
       disableUpgradeCore: true,
       disableTunMode: false,
@@ -259,95 +309,25 @@ const mihomoFallbackDashboardHTML = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Mihomo Dashboard</title>
+  <title>zashboard 未安装</title>
   <style>
     :root{color-scheme:light dark;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827}
-    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#f8fafc,#eef2f7)}
-    .shell{max-width:1180px;margin:0 auto;padding:28px}
-    header{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:22px}
-    h1{font-size:24px;line-height:1.2;margin:0}
-    p{margin:6px 0 0;color:#64748b}
-    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-    .card{background:rgba(255,255,255,.86);border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:16px;box-shadow:0 10px 30px rgba(15,23,42,.08)}
-    .span2{grid-column:span 2}
-    .span4{grid-column:span 4}
-    .label{font-size:12px;color:#64748b;margin-bottom:8px}
-    .value{font-size:22px;font-weight:700;word-break:break-word}
-    button,a.button{border:0;border-radius:8px;background:#111827;color:white;padding:10px 14px;text-decoration:none;cursor:pointer;font-size:14px}
-    button.secondary{background:#e2e8f0;color:#111827}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{text-align:left;padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
-    th{color:#64748b;font-weight:600}
-    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .ok{color:#047857}.bad{color:#b91c1c}.muted{color:#64748b}
-    @media(max-width:860px){.grid{grid-template-columns:1fr}.span2,.span4{grid-column:auto}header{align-items:flex-start;flex-direction:column}}
-    @media(prefers-color-scheme:dark){:root{background:#0f172a;color:#e5e7eb}body{background:linear-gradient(180deg,#111827,#020617)}.card{background:rgba(15,23,42,.88);border-color:rgba(148,163,184,.18)}th,td{border-color:#1f2937}p,.label,.muted{color:#94a3b8}button.secondary{background:#1f2937;color:#e5e7eb}}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7fb}
+    .panel{width:min(560px,calc(100vw - 40px));background:rgba(255,255,255,.92);border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:24px;box-shadow:0 18px 45px rgba(15,23,42,.10)}
+    h1{font-size:22px;margin:0 0 10px}
+    p{margin:0 0 14px;color:#64748b;line-height:1.6}
+    code{background:#eef2f7;border-radius:6px;padding:2px 6px}
+    a{color:#0284c7;text-decoration:none}
+    @media(prefers-color-scheme:dark){:root{background:#020617;color:#e5e7eb}body{background:#020617}.panel{background:rgba(15,23,42,.92);border-color:rgba(148,163,184,.25)}p{color:#94a3b8}code{background:#111827}}
   </style>
 </head>
 <body>
-  <main class="shell">
-    <header>
-      <div>
-        <h1>Mihomo Dashboard</h1>
-        <p>内置轻量面板。安装 zashboard 后会自动优先显示真实 Dashboard。</p>
-      </div>
-      <div class="toolbar">
-        <button id="refresh">刷新</button>
-        <a class="button" href="/mihomo/proxies">返回代理节点</a>
-      </div>
-    </header>
-    <section class="grid">
-      <div class="card"><div class="label">运行模式</div><div class="value" id="mode">-</div></div>
-      <div class="card"><div class="label">HTTP / Mixed</div><div class="value" id="ports">-</div></div>
-      <div class="card"><div class="label">下载</div><div class="value" id="down">0 B/s</div></div>
-      <div class="card"><div class="label">上传</div><div class="value" id="up">0 B/s</div></div>
-      <div class="card span2"><div class="label">代理组</div><table><thead><tr><th>名称</th><th>类型</th><th>当前</th></tr></thead><tbody id="proxies"><tr><td colspan="3" class="muted">加载中</td></tr></tbody></table></div>
-      <div class="card span2"><div class="label">连接</div><table><thead><tr><th>Host</th><th>规则</th><th>链路</th></tr></thead><tbody id="connections"><tr><td colspan="3" class="muted">加载中</td></tr></tbody></table></div>
-      <div class="card span4"><div class="label">状态</div><div id="status" class="muted">等待刷新</div></div>
-    </section>
+  <main class="panel">
+    <h1>zashboard 还没有安装</h1>
+    <p>Mihomo 的运行态 Web UI 现在由 <code>Zephyruso/zashboard</code> 接管。当前数据目录没有找到 <code>configs/mihomo/ui/index.html</code>，所以不能显示真实 zashboard。</p>
+    <p>请在初始化流程下载 Mihomo 时同时安装 zashboard，或在组件更新页安装 <code>zashboard</code>。安装完成后再次打开 <code>/ui/</code> 会直接加载官方 zashboard 静态页面，并自动连接当前主机的 <code>9090</code> Mihomo 控制端口。</p>
+    <p><a href="/settings">返回系统设置</a></p>
   </main>
-  <script>
-    const token = localStorage.getItem("msm-token") || "";
-    const headers = token ? { Authorization: "Bearer " + token } : {};
-    const fmt = n => {
-      n = Number(n || 0);
-      if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + " MB/s";
-      if (n > 1024) return (n / 1024).toFixed(1) + " KB/s";
-      return n.toFixed(0) + " B/s";
-    };
-    async function api(path) {
-      const res = await fetch("/api/v1" + path, { headers });
-      const json = await res.json();
-      return json.data ?? json;
-    }
-    async function refresh() {
-      const status = document.getElementById("status");
-      try {
-        const [configs, proxies, traffic, connections] = await Promise.all([
-          api("/mihomo/controller/configs"),
-          api("/mihomo/proxies"),
-          api("/mihomo/traffic"),
-          api("/mihomo/connections")
-        ]);
-        document.getElementById("mode").textContent = configs.mode || "-";
-        document.getElementById("ports").textContent = (configs.port || "-") + " / " + (configs["mixed-port"] || "-");
-        document.getElementById("down").textContent = fmt(traffic.down);
-        document.getElementById("up").textContent = fmt(traffic.up);
-        const proxyRows = Object.values(proxies.proxies || {}).filter(p => p && Array.isArray(p.all)).slice(0, 12);
-        document.getElementById("proxies").innerHTML = proxyRows.length ? proxyRows.map(p => "<tr><td>" + (p.name || "-") + "</td><td>" + (p.type || "-") + "</td><td>" + (p.now || "-") + "</td></tr>").join("") : "<tr><td colspan=\"3\" class=\"muted\">暂无代理组</td></tr>";
-        const connRows = (connections.connections || []).slice(0, 12);
-        document.getElementById("connections").innerHTML = connRows.length ? connRows.map(c => "<tr><td>" + ((c.metadata && (c.metadata.host || c.metadata.destinationIP)) || "-") + "</td><td>" + (c.rule || "-") + "</td><td>" + ((c.chains || []).join(" / ") || "-") + "</td></tr>").join("") : "<tr><td colspan=\"3\" class=\"muted\">暂无连接</td></tr>";
-        status.textContent = "已刷新";
-        status.className = "ok";
-      } catch (err) {
-        status.textContent = err.message || String(err);
-        status.className = "bad";
-      }
-    }
-    document.getElementById("refresh").addEventListener("click", refresh);
-    refresh();
-    setInterval(refresh, 5000);
-  </script>
 </body>
 </html>`
 

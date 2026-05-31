@@ -230,7 +230,7 @@ bind-address: "*"
 routing-mark: 1
 external-controller: :9090
 external-ui: ui
-external-ui-url: https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip
+external-ui-url: https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip
 profile:
   store-selected: true
   store-fake-ip: true

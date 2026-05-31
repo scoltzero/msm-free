@@ -23,14 +23,28 @@ Then open `http://localhost:7777`.
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.8/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.9/msm-free-linux-amd64.tar.gz
 tar -xzf msm-free-linux-amd64.tar.gz -C /tmp
 sudo /tmp/msm-free-*-linux-amd64/install.sh
 ```
 
-The installer creates `/usr/local/bin/msm-free`, initializes `/opt/msm-free`, installs a systemd service, and starts the WebUI on port `7777`.
+The installer creates `/usr/local/bin/msm-free`, registers the compatibility command `/usr/local/bin/msm`, initializes `/opt/msm-free`, installs a systemd service, and starts the WebUI on port `7777`.
 
 Open `http://<server-ip>:7777` and complete the setup wizard. After setup, `msm-free` persists the expected runtime state and restores Mihomo, MosDNS and nftables on subsequent starts unless the user explicitly stops or clears them.
+
+Stop and uninstall:
+
+```bash
+sudo msm stop
+sudo msm restart
+msm logs --lines 200 mosdns
+msm doctor
+sudo msm update
+sudo msm uninstall
+sudo msm uninstall --purge
+```
+
+`uninstall` removes the systemd service and `/usr/local/bin/msm-free`. It keeps `/opt/msm-free` unless `--purge` is provided.
 
 ## Install Unraid Plugin
 
@@ -50,7 +64,7 @@ Persistent Unraid data defaults to `/mnt/user/appdata/msm-free`.
 
 ```bash
 make build
-make unraid VERSION=0.1.8 UNRAID_VERSION=0.1.8 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.8
+make unraid VERSION=0.1.9 UNRAID_VERSION=0.1.9 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.9
 ```
 
 The generated artifacts are:

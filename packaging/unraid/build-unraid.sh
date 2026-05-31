@@ -33,6 +33,7 @@ cp "$BIN" "$PKG_ROOT/usr/local/emhttp/plugins/${APP_NAME}/bin/${APP_NAME}"
 
 chmod 0755 "$PKG_ROOT/usr/local/emhttp/plugins/${APP_NAME}/bin/${APP_NAME}"
 chmod 0755 "$PKG_ROOT/etc/rc.d/rc.${APP_NAME}"
+chmod 0755 "$PKG_ROOT/usr/local/bin/msm"
 chmod 0755 "$PKG_ROOT/usr/local/emhttp/plugins/${APP_NAME}/event/started"
 chmod 0755 "$PKG_ROOT/usr/local/emhttp/plugins/${APP_NAME}/event/stopping_svcs"
 

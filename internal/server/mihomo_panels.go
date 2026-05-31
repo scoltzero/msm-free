@@ -37,6 +37,10 @@ func (a *App) proxySnapshot() map[string]any {
 }
 
 func (a *App) mihomoSnapshot() map[string]any {
+	return a.mihomoOverviewSnapshot()
+}
+
+func (a *App) mihomoFullSnapshot() map[string]any {
 	cfg := a.mihomoConfigMap()
 	service := a.Services.Status("mihomo")
 	controllerCfg := a.mihomoControllerConfig()
@@ -104,6 +108,83 @@ func (a *App) mihomoSnapshot() map[string]any {
 	snapshot["activeConnections"] = stats["activeConnections"]
 	snapshot["active_connections"] = stats["active_connections"]
 	return snapshot
+}
+
+func (a *App) mihomoOverviewSnapshot() map[string]any {
+	cfg := a.mihomoConfigMap()
+	service := a.Services.Status("mihomo")
+	controllerCfg := a.mihomoControllerConfig()
+	connections := a.mihomoConnectionsSummary()
+	traffic := a.mihomoTrafficCachedPayload()
+	version := a.mihomoVersion()
+	if raw, ok, _ := a.mihomoControllerJSON(http.MethodGet, "/version", nil); ok {
+		if m, ok := raw.(map[string]any); ok {
+			version = firstNonEmpty(stringMapValue(m, "version"), stringMapValue(m, "premium"), version)
+		}
+	}
+	ports := mihomoPortsFromConfig(cfg)
+	health := map[string]any{
+		"controller": a.tcpPortOpen("127.0.0.1", ports["controller"]),
+		"http":       a.tcpPortOpen("127.0.0.1", ports["http"]),
+		"socks":      a.tcpPortOpen("127.0.0.1", ports["socks"]),
+		"mixed":      a.tcpPortOpen("127.0.0.1", ports["mixed"]),
+		"redir":      a.tcpPortOpen("127.0.0.1", ports["redir"]),
+		"tproxy":     a.tcpPortOpen("127.0.0.1", ports["tproxy"]),
+	}
+	counts := mihomoLocalConfigCounts(cfg)
+	snapshot := map[string]any{
+		"service":              service,
+		"status":               service.Status,
+		"running":              service.Running,
+		"installed":            service.Installed,
+		"pid":                  service.PID,
+		"cpu":                  service.CPU,
+		"memory":               service.Memory,
+		"uptime":               service.Uptime,
+		"version":              version,
+		"mode":                 firstNonEmpty(stringMapValue(controllerCfg, "mode"), stringMapValue(cfg, "mode"), "rule"),
+		"log_level":            firstNonEmpty(stringMapValue(controllerCfg, "log-level"), stringMapValue(cfg, "log-level"), "info"),
+		"allow_lan":            boolMapValue(controllerCfg, "allow-lan", boolMapValue(cfg, "allow-lan", true)),
+		"external_controller":  a.mihomoControllerBase(),
+		"controller_available": controllerCfg != nil,
+		"ui_url":               "/ui/",
+		"zashboard_url":        "/ui/",
+		"ports":                ports,
+		"health":               health,
+		"traffic":              traffic,
+		"connections":          connections,
+		"connection_count":     connections["total"],
+		"proxy_group_count":    counts["proxy_group_count"],
+		"proxy_count":          counts["proxy_count"],
+		"rule_count":           counts["rule_count"],
+		"proxy_provider_count": counts["proxy_provider_count"],
+		"rule_provider_count":  counts["rule_provider_count"],
+		"config":               map[string]any{"path": "configs/mihomo/config.yaml", "active": a.setting("mihomo.active_config", "config.yaml")},
+		"lightweight":          true,
+	}
+	stats := mihomoStatsFromSnapshot(snapshot)
+	snapshot["stats"] = stats
+	snapshot["uploadSpeed"] = stats["uploadSpeed"]
+	snapshot["downloadSpeed"] = stats["downloadSpeed"]
+	snapshot["upload_speed"] = stats["upload_speed"]
+	snapshot["download_speed"] = stats["download_speed"]
+	snapshot["uploadTotal"] = stats["uploadTotal"]
+	snapshot["downloadTotal"] = stats["downloadTotal"]
+	snapshot["upload_total"] = stats["upload_total"]
+	snapshot["download_total"] = stats["download_total"]
+	snapshot["activeConnections"] = stats["activeConnections"]
+	snapshot["active_connections"] = stats["active_connections"]
+	return snapshot
+}
+
+func mihomoLocalConfigCounts(cfg map[string]any) map[string]any {
+	return map[string]any{
+		"proxy_group_count":    anyLen(cfg["proxy-groups"]),
+		"proxy_count":          anyLen(cfg["proxies"]),
+		"rule_count":           anyLen(cfg["rules"]),
+		"proxy_provider_count": anyLen(cfg["proxy-providers"]),
+		"rule_provider_count":  anyLen(cfg["rule-providers"]),
+	}
 }
 
 func mihomoStatsFromSnapshot(snapshot map[string]any) map[string]any {
@@ -290,7 +371,47 @@ func mihomoPortsFromConfig(cfg map[string]any) map[string]int {
 	return ports
 }
 
+const mihomoTrafficCacheTTL = 2 * time.Second
+
 func (a *App) mihomoTrafficPayload() map[string]any {
+	if cached, ok := a.cachedMihomoTraffic(); ok {
+		return cached
+	}
+	payload := a.fetchMihomoTrafficPayload()
+	a.storeMihomoTraffic(payload)
+	return payload
+}
+
+func (a *App) mihomoTrafficCachedPayload() map[string]any {
+	if cached, ok := a.cachedMihomoTraffic(); ok {
+		return cached
+	}
+	go a.refreshMihomoTrafficCache()
+	return zeroMihomoTrafficPayload()
+}
+
+func (a *App) refreshMihomoTrafficCache() {
+	payload := a.fetchMihomoTrafficPayload()
+	a.storeMihomoTraffic(payload)
+}
+
+func (a *App) cachedMihomoTraffic() (map[string]any, bool) {
+	a.mihomoTrafficMu.Lock()
+	defer a.mihomoTrafficMu.Unlock()
+	if a.mihomoTrafficCache == nil || a.mihomoTrafficAt.IsZero() || time.Since(a.mihomoTrafficAt) > mihomoTrafficCacheTTL {
+		return nil, false
+	}
+	return cloneAnyMap(a.mihomoTrafficCache), true
+}
+
+func (a *App) storeMihomoTraffic(payload map[string]any) {
+	a.mihomoTrafficMu.Lock()
+	defer a.mihomoTrafficMu.Unlock()
+	a.mihomoTrafficCache = cloneAnyMap(payload)
+	a.mihomoTrafficAt = time.Now()
+}
+
+func (a *App) fetchMihomoTrafficPayload() map[string]any {
 	if raw, ok := a.mihomoControllerMap("/traffic"); ok {
 		return map[string]any{
 			"up":       numericMapValue(raw, "up"),
@@ -300,7 +421,37 @@ func (a *App) mihomoTrafficPayload() map[string]any {
 			"raw":      raw,
 		}
 	}
+	return zeroMihomoTrafficPayload()
+}
+
+func zeroMihomoTrafficPayload() map[string]any {
 	return map[string]any{"up": 0, "down": 0, "upload": 0, "download": 0, "raw": map[string]any{}}
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func (a *App) mihomoConnectionsSummary() map[string]any {
+	raw, ok := a.mihomoControllerMap("/connections")
+	if !ok {
+		return map[string]any{
+			"total": 0, "active_count": 0, "downloadTotal": 0, "uploadTotal": 0, "download_total": 0, "upload_total": 0,
+		}
+	}
+	total := len(anySlice(raw["connections"]))
+	return map[string]any{
+		"total":          total,
+		"active_count":   total,
+		"downloadTotal":  numericMapValue(raw, "downloadTotal"),
+		"uploadTotal":    numericMapValue(raw, "uploadTotal"),
+		"download_total": numericMapValue(raw, "downloadTotal"),
+		"upload_total":   numericMapValue(raw, "uploadTotal"),
+	}
 }
 
 func (a *App) mihomoConnectionsPayload(r *http.Request) map[string]any {
@@ -1041,6 +1192,23 @@ func sortMihomoRows(rows []map[string]any, field, order string) {
 		}
 		return lv > rv
 	})
+}
+
+func anyLen(v any) int {
+	switch items := v.(type) {
+	case []map[string]any:
+		return len(items)
+	case []any:
+		return len(items)
+	case []string:
+		return len(items)
+	case map[string]any:
+		return len(items)
+	case map[string]string:
+		return len(items)
+	default:
+		return 0
+	}
 }
 
 func anyMapSlice(v any) []map[string]any {

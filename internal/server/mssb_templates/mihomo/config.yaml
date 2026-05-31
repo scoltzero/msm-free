@@ -78,7 +78,7 @@ routing-mark: 1
 # 控制面板
 external-controller: :9090
 external-ui: /mssb/mihomo/ui
-external-ui-url: 'https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip'
+external-ui-url: 'https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip'
 geox-url:
   geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
   geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"

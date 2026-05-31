@@ -134,6 +134,11 @@ func (a *App) handleSetupPutConfig(w http.ResponseWriter, r *http.Request) {
 			missing = append(missing, name)
 		}
 	}
+	if strings.EqualFold(cfg.ProxyCore, "mihomo") || cfg.ProxyCore == "" {
+		if _, err := os.Stat(a.componentTarget("zashboard")); err != nil {
+			missing = append(missing, "zashboard")
+		}
+	}
 	networkReapply := shouldRestoreNFT(cfg)
 	payload := setupConfigPayload(cfg, true)
 	response := map[string]any{
@@ -366,7 +371,7 @@ func (a *App) handleSetupReset(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleSetupDownload(w http.ResponseWriter, r *http.Request) {
-	component := r.PathValue("component")
+	component := normalizeComponent(r.PathValue("component"))
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -381,17 +386,69 @@ func (a *App) handleSetupDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if isTruthy(r.URL.Query().Get("skip_if_exists")) {
-		if target := a.componentTarget(component); target != "" {
-			if _, err := os.Stat(target); err == nil {
-				emit(DownloadEvent{Status: "skipped", Progress: 100, Message: component + " already installed"})
-				return
-			}
+		if a.setupComponentInstalled(component) {
+			emit(DownloadEvent{Status: "skipped", Progress: 100, Message: component + " already installed"})
+			return
 		}
 	}
-	err := a.installComponent(component, emit)
+	err := a.installSetupComponent(component, emit)
 	if err != nil {
 		emit(DownloadEvent{Status: "failed", Progress: 0, Message: err.Error()})
 	}
+}
+
+func (a *App) setupComponentInstalled(component string) bool {
+	target := a.componentTarget(component)
+	if target == "" {
+		return false
+	}
+	if _, err := os.Stat(target); err != nil {
+		return false
+	}
+	if component == "mihomo" {
+		if _, err := os.Stat(a.componentTarget("zashboard")); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *App) installSetupComponent(component string, emit func(DownloadEvent)) error {
+	if component != "mihomo" {
+		return a.installComponent(component, emit)
+	}
+	if _, err := os.Stat(a.componentTarget("mihomo")); err != nil {
+		if err := a.installComponent("mihomo", func(ev DownloadEvent) {
+			if ev.Status == "completed" {
+				emit(DownloadEvent{Status: "running", Progress: 68, Message: "mihomo installed; preparing zashboard UI"})
+				return
+			}
+			if ev.Progress > 68 {
+				ev.Progress = 68
+			}
+			emit(ev)
+		}); err != nil {
+			return err
+		}
+	} else {
+		emit(DownloadEvent{Status: "running", Progress: 60, Message: "mihomo already installed"})
+	}
+	if _, err := os.Stat(a.componentTarget("zashboard")); err == nil {
+		emit(DownloadEvent{Status: "completed", Progress: 100, Message: "mihomo and zashboard installed"})
+		return nil
+	}
+	emit(DownloadEvent{Status: "running", Progress: 70, Message: "installing zashboard UI"})
+	if err := a.installComponent("zashboard", func(ev DownloadEvent) {
+		ev.Progress = 70 + ev.Progress/4
+		if ev.Progress > 99 && ev.Status != "completed" {
+			ev.Progress = 99
+		}
+		emit(ev)
+	}); err != nil {
+		return err
+	}
+	emit(DownloadEvent{Status: "completed", Progress: 100, Message: "mihomo and zashboard installed"})
+	return nil
 }
 
 func isTruthy(value string) bool {

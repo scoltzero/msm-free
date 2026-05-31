@@ -13,10 +13,10 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Adds MSM-compatible MosDNS adblock and online split-routing rule endpoints.
-- Restores MosDNS system-function defaults for upstream DNS, FakeIP upstreams, switches, cache, and log capacity.
-- Improves MosDNS client scanning with ARP/neigh/procfs/allowlist/DNS-log discovery and MSM-compatible scan task responses.
-- Fixes the MosDNS client page response shape so the static WebUI can render scanned clients.
+- Adds the `msm` compatibility CLI for status, restart, logs, doctor, update, and uninstall workflows.
+- Adds stop and uninstall runtime support with Linux and Unraid packaging integration.
+- Uses official zashboard assets for the Mihomo Web UI while keeping MSM-style native Mihomo pages fast.
+- Adds MSM-compatible daemon and MosDNS rule import/export API shims.
     ]]>
   </CHANGES>
 

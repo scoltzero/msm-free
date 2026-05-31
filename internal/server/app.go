@@ -41,6 +41,9 @@ type App struct {
 	monitorMu          sync.Mutex
 	monitorNetworkLast monitorNetworkSample
 	appLogMu           sync.Mutex
+	mihomoTrafficMu    sync.Mutex
+	mihomoTrafficCache map[string]any
+	mihomoTrafficAt    time.Time
 }
 
 type APIError struct {
@@ -194,6 +197,9 @@ func (a *App) publicAPI(path string) bool {
 
 func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/version", a.handleVersion)
+	mux.HandleFunc("GET /api/v1/daemon/status", a.handleDaemonStatus)
+	mux.HandleFunc("POST /api/v1/daemon/restart", a.handleDaemonRestart)
+	mux.HandleFunc("POST /api/v1/daemon/stop", a.handleDaemonStop)
 
 	mux.HandleFunc("GET /api/v1/setup/check", a.handleSetupCheck)
 	mux.HandleFunc("GET /api/v1/setup/system-info", a.handleSetupSystemInfo)

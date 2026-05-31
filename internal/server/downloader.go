@@ -29,7 +29,7 @@ func componentDownloadURL(component string) string {
 	case "mosdns":
 		return "https://github.com/baozaodetudou/mssb/releases/download/mosdns/mosdns-linux-amd64.zip"
 	case "zashboard", "ui":
-		return "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip"
+		return "https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip"
 	default:
 		return ""
 	}
@@ -65,6 +65,11 @@ func (a *App) installComponent(component string, emit func(DownloadEvent)) error
 		}
 	} else {
 		if err := untarGz(tmp, filepath.Dir(target)); err != nil {
+			return err
+		}
+	}
+	if component == "zashboard" || component == "ui" {
+		if err := patchZashboardIndex(filepath.Dir(target)); err != nil {
 			return err
 		}
 	}
@@ -278,6 +283,68 @@ func stripFirstPathComponent(p string) string {
 	}
 	return parts[1]
 }
+
+func patchZashboardIndex(uiDir string) error {
+	indexPath := filepath.Join(uiDir, "index.html")
+	body, err := os.ReadFile(indexPath)
+	if err != nil {
+		return err
+	}
+	html := string(body)
+	if strings.Contains(html, "msm-free-zashboard-disk-backend") {
+		return nil
+	}
+	if strings.Contains(html, "</head>") {
+		html = strings.Replace(html, "</head>", zashboardDiskAutoBackendScript+"</head>", 1)
+	} else {
+		html = zashboardDiskAutoBackendScript + html
+	}
+	return os.WriteFile(indexPath, []byte(html), 0644)
+}
+
+const zashboardDiskAutoBackendScript = `<script id="msm-free-zashboard-disk-backend">
+;(function () {
+  try {
+    if (!window.localStorage) return
+    var host = window.location.hostname || "127.0.0.1"
+    var listKey = "setup/api-list"
+    var activeKey = "setup/active-uuid"
+    var raw = localStorage.getItem(listKey)
+    var list = []
+    if (raw) {
+      try {
+        var parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) list = parsed
+      } catch (_) {
+        list = []
+      }
+    }
+    var id = "msm-free-" + host.replace(/[^a-zA-Z0-9]/g, "-") + "-9090"
+    var entry = {
+      protocol: "http",
+      secondaryPath: "",
+      host: host,
+      port: "9090",
+      password: "",
+      label: "msm-free",
+      disableUpgradeCore: true,
+      disableTunMode: false,
+      uuid: id
+    }
+    var existing = list.find(function (item) { return item && item.uuid === id })
+    if (existing) {
+      Object.assign(existing, entry)
+    } else {
+      list.unshift(entry)
+    }
+    localStorage.setItem(listKey, JSON.stringify(list))
+    localStorage.setItem(activeKey, id)
+  } catch (err) {
+    console.warn("msm-free zashboard disk backend preset failed", err)
+  }
+})()
+</script>
+`
 
 func chmodExecutables(dir string) error {
 	return filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {

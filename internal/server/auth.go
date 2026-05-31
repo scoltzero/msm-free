@@ -277,6 +277,7 @@ func (a *App) authorizeRequest(u *User, r *http.Request) bool {
 
 func operatorAllows(method, path string) bool {
 	deniedPrefixes := []string{
+		"/api/v1/daemon",
 		"/api/v1/users",
 		"/api/v1/audit-logs",
 		"/api/v1/settings",

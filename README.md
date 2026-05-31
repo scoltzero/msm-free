@@ -19,7 +19,7 @@
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.8/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.9/msm-free-linux-amd64.tar.gz
 ```
 
 解压并安装：
@@ -32,6 +32,7 @@ sudo /tmp/msm-free-*-linux-amd64/install.sh
 安装脚本会完成这些操作：
 
 - 安装二进制到 `/usr/local/bin/msm-free`
+- 注册兼容命令 `/usr/local/bin/msm`
 - 初始化数据目录 `/opt/msm-free`
 - 安装 systemd 服务 `msm-free.service`
 - 启动 WebUI，默认监听 `7777`
@@ -48,8 +49,60 @@ http://<服务器IP>:7777
 
 ```bash
 sudo systemctl status msm-free
+sudo systemctl stop msm-free
 sudo systemctl restart msm-free
 sudo journalctl -u msm-free -f
+```
+
+也可以直接使用 `msm-free` 自带命令：
+
+```bash
+sudo msm status
+sudo msm stop
+sudo msm restart
+sudo msm logs
+sudo msm doctor
+sudo msm update
+```
+
+安装后 `msm` 和 `msm-free` 指向同一套 CLI。`msm stop` 会向正在运行的管理进程发送优雅停止信号。管理进程退出前会停止它托管的 MosDNS 和 Mihomo 子进程。超时仍未退出时可以执行：
+
+```bash
+sudo msm stop --timeout 20s --force
+```
+
+常用兼容命令：
+
+```bash
+msm status
+msm restart
+msm logs msm
+msm logs --lines 200 mosdns
+msm logs --lines 200 mihomo
+msm doctor
+msm license status
+sudo msm update
+sudo msm service install
+sudo msm service uninstall
+```
+
+卸载 Linux systemd 安装：
+
+```bash
+sudo msm uninstall
+```
+
+默认卸载只删除 systemd 服务和 `/usr/local/bin/msm-free`，会保留 `/opt/msm-free` 数据目录。需要连配置、数据库、日志、组件二进制一起删除时再显式执行：
+
+```bash
+sudo msm uninstall --purge
+```
+
+如果你还保留着解压后的发布包，也可以在包目录内运行：
+
+```bash
+sudo ./uninstall.sh
+sudo ./uninstall.sh --purge
 ```
 
 ## Unraid 插件使用
@@ -75,6 +128,16 @@ Unraid 运行逻辑：
 - Unraid 重启或插件服务重启后，`msm-free` 会按已保存状态恢复 Mihomo、MosDNS 和 nftables。
 - 如果用户在 WebUI 中手动停止服务或清除 nftables，下次启动会尊重这个关闭状态。
 
+Unraid 停止服务：
+
+```bash
+/etc/rc.d/rc.msm-free stop
+```
+
+Unraid 卸载请在 WebGUI 的插件管理页面删除 `msm-free` 插件。插件卸载会停止 WebUI 服务并移除插件文件，默认保留 `/mnt/user/appdata/msm-free` 数据目录；如需彻底清理，需要手动删除该目录。
+
+Unraid 上不要使用 `msm update` 或 `msm uninstall`，更新和卸载应通过 Unraid 插件管理页面完成，避免绕过 `.plg` 包状态。
+
 ## 从源码构建
 
 本地运行：
@@ -86,19 +149,19 @@ go run ./cmd/msm-free serve -c ./data -p 7777
 构建 Linux x86_64 压缩包：
 
 ```bash
-make build VERSION=0.1.8
+make build VERSION=0.1.9
 ```
 
 构建 Unraid 插件产物：
 
 ```bash
-make unraid VERSION=0.1.8 UNRAID_VERSION=0.1.8 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.8
+make unraid VERSION=0.1.9 UNRAID_VERSION=0.1.9 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.9
 ```
 
 构建产物：
 
 - `dist/msm-free-linux-amd64.tar.gz`
-- `dist/unraid/msm-free-0.1.8-x86_64-1.txz`
+- `dist/unraid/msm-free-0.1.9-x86_64-1.txz`
 - `msm-free.plg`
 
 发布时，`.txz` 和 Linux `.tar.gz` 上传到 GitHub Release，`msm-free.plg` 保留在仓库根目录供 Unraid 安装器读取。

@@ -101,7 +101,13 @@ func (a *App) handleMihomoStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMihomoOverview(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mihomoSnapshot()})
+	var data map[string]any
+	if isTruthy(r.URL.Query().Get("full")) {
+		data = a.mihomoFullSnapshot()
+	} else {
+		data = a.mihomoSnapshot()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": data})
 }
 
 func (a *App) handleMihomoStats(w http.ResponseWriter, r *http.Request) {
@@ -347,7 +353,11 @@ func (a *App) handleMihomoRulesConfigPut(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *App) handleMihomoTraffic(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mihomoTrafficPayload()})
+	if isTruthy(r.URL.Query().Get("fresh")) {
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mihomoTrafficPayload()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mihomoTrafficCachedPayload()})
 }
 
 func (a *App) handleMihomoConnections(w http.ResponseWriter, r *http.Request) {

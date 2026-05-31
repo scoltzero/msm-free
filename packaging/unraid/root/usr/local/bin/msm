@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/local/emhttp/plugins/msm-free/bin/msm-free "$@"

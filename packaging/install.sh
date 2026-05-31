@@ -8,6 +8,8 @@ HOST="0.0.0.0"
 PORT="7777"
 SERVICE_NAME="msm-free"
 START_SERVICE="1"
+ALIAS_NAME="msm"
+INSTALL_ALIAS="1"
 
 usage() {
   cat <<'EOF'
@@ -19,6 +21,8 @@ Options:
   --host HOST          HTTP listen host (default: 0.0.0.0)
   --port PORT          HTTP listen port (default: 7777)
   --service-name NAME  systemd service name (default: msm-free)
+  --alias-name NAME    CLI alias to register under PATH/bin (default: msm)
+  --no-alias           Do not register the msm compatibility alias
   --no-start           Install and enable the service, but do not start it
   -h, --help           Show this help
 EOF
@@ -45,6 +49,14 @@ while [ "$#" -gt 0 ]; do
     --service-name)
       SERVICE_NAME="${2:?missing value for --service-name}"
       shift 2
+      ;;
+    --alias-name)
+      ALIAS_NAME="${2:?missing value for --alias-name}"
+      shift 2
+      ;;
+    --no-alias)
+      INSTALL_ALIAS="0"
+      shift
       ;;
     --no-start)
       START_SERVICE="0"
@@ -82,6 +94,15 @@ mkdir -p "$BIN_DIR" "$DATA_DIR"
 install -m 0755 "$BIN_SRC" "$BIN_DEST"
 "$BIN_DEST" init --config "$DATA_DIR"
 
+if [ "$INSTALL_ALIAS" = "1" ] && [ -n "$ALIAS_NAME" ]; then
+  ALIAS_DEST="$BIN_DIR/$ALIAS_NAME"
+  if [ ! -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
+    ln -sfn "$BIN_DEST" "$ALIAS_DEST"
+  else
+    echo "skip alias: $ALIAS_DEST already exists and is not a symlink" >&2
+  fi
+fi
+
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   cat > "$SERVICE_PATH" <<EOF
 [Unit]
@@ -110,12 +131,13 @@ EOF
     systemctl restart "$SERVICE_NAME"
   fi
   echo "installed $APP_NAME to $BIN_DEST"
+  [ "$INSTALL_ALIAS" = "1" ] && [ -n "$ALIAS_NAME" ] && echo "cli alias: $BIN_DIR/$ALIAS_NAME"
   echo "data directory: $DATA_DIR"
   echo "service: $SERVICE_NAME"
   echo "web UI: http://$(hostname -I 2>/dev/null | awk '{print $1}'):$PORT"
 else
   echo "installed $APP_NAME to $BIN_DEST"
+  [ "$INSTALL_ALIAS" = "1" ] && [ -n "$ALIAS_NAME" ] && echo "cli alias: $BIN_DIR/$ALIAS_NAME"
   echo "systemd was not detected; start manually:"
   echo "  $BIN_DEST serve --config $DATA_DIR --host $HOST --port $PORT"
 fi
-

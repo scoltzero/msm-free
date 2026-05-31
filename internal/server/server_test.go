@@ -236,6 +236,45 @@ func TestStaticSetupRouteServesFreshSPAEntry(t *testing.T) {
 	}
 }
 
+func TestOriginalMSMAPICompatibilityShims(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+
+	daemon := requestJSON(t, app, http.MethodGet, "/api/v1/daemon/status", token, nil)
+	if daemon.Code != http.StatusOK {
+		t.Fatalf("daemon status=%d body=%s", daemon.Code, daemon.Body.String())
+	}
+	if !strings.Contains(daemon.Body.String(), `"pid"`) || !strings.Contains(daemon.Body.String(), `"services"`) {
+		t.Fatalf("daemon status missing compatibility fields:\n%s", daemon.Body.String())
+	}
+
+	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/overview/dashboard", token, nil)
+	if overview.Code != http.StatusOK {
+		t.Fatalf("mosdns dashboard status=%d body=%s", overview.Code, overview.Body.String())
+	}
+	if !strings.Contains(overview.Body.String(), `"success":true`) {
+		t.Fatalf("mosdns dashboard should return a normal overview payload:\n%s", overview.Body.String())
+	}
+
+	imported := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/rules/whitelist/import", token, map[string]any{
+		"rules": []string{"full:example.com", "domain:example.org"},
+	})
+	if imported.Code != http.StatusOK {
+		t.Fatalf("rule import status=%d body=%s", imported.Code, imported.Body.String())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/mosdns/rules/whitelist/export", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res := httptest.NewRecorder()
+	app.Router().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("rule export status=%d body=%s", res.Code, res.Body.String())
+	}
+	if got := res.Body.String(); !strings.Contains(got, "full:example.com") || !strings.Contains(got, "domain:example.org") {
+		t.Fatalf("rule export missing imported rules:\n%s", got)
+	}
+}
+
 func TestSetupNetworkInterfacesResponseMatchesExportedWebUI(t *testing.T) {
 	app := newTestApp(t)
 	res := requestJSON(t, app, http.MethodGet, "/api/v1/setup/network-interfaces", "", nil)
@@ -307,6 +346,13 @@ func TestSetupDownloadSkipIfExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	uiTarget := app.componentTarget("zashboard")
+	if err := os.MkdirAll(filepath.Dir(uiTarget), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(uiTarget, []byte("<!doctype html>"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/setup/download/mihomo?skip_if_exists=1", nil)
@@ -636,10 +682,14 @@ func TestMihomoControllerBackedOverviewAndTraffic(t *testing.T) {
 	app.setSetting("mihomo_controller_endpoint", api.URL)
 
 	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/overview", token, nil)
-	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"version":"v1.19.9"`) || !strings.Contains(overview.Body.String(), `"connection_count":2`) || !strings.Contains(overview.Body.String(), `"proxy_provider_count":1`) {
+	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"version":"v1.19.9"`) || !strings.Contains(overview.Body.String(), `"connection_count":2`) || !strings.Contains(overview.Body.String(), `"lightweight":true`) {
 		t.Fatalf("mihomo overview should use controller data: status=%d body=%s", overview.Code, overview.Body.String())
 	}
-	traffic := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/traffic", token, nil)
+	full := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/overview?full=1", token, nil)
+	if full.Code != http.StatusOK || !strings.Contains(full.Body.String(), `"proxy_provider_count":1`) || !strings.Contains(full.Body.String(), `"proxy_group_count":1`) {
+		t.Fatalf("mihomo full overview should keep legacy aggregate data: status=%d body=%s", full.Code, full.Body.String())
+	}
+	traffic := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/traffic?fresh=1", token, nil)
 	if traffic.Code != http.StatusOK || !strings.Contains(traffic.Body.String(), `"download":4096`) || !strings.Contains(traffic.Body.String(), `"upload":1024`) {
 		t.Fatalf("mihomo traffic mismatch: status=%d body=%s", traffic.Code, traffic.Body.String())
 	}
@@ -650,6 +700,53 @@ func TestMihomoControllerBackedOverviewAndTraffic(t *testing.T) {
 	proxy := requestJSON(t, app, http.MethodGet, "/api/v1/proxy/overview", token, nil)
 	if proxy.Code != http.StatusOK || !strings.Contains(proxy.Body.String(), `"core":"mihomo"`) || !strings.Contains(proxy.Body.String(), `"mode":"rule"`) {
 		t.Fatalf("proxy overview mismatch: status=%d body=%s", proxy.Code, proxy.Body.String())
+	}
+}
+
+func TestMihomoOverviewAndStatsDoNotBlockOnTrafficStream(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	api := newSlowTrafficMihomoController(t)
+	defer api.Close()
+	app.setSetting("mihomo_controller_endpoint", api.URL)
+
+	start := time.Now()
+	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/overview", token, nil)
+	if elapsed := time.Since(start); elapsed > 300*time.Millisecond {
+		t.Fatalf("lightweight overview should not wait for /traffic, elapsed=%s body=%s", elapsed, overview.Body.String())
+	}
+	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"connection_count":1`) {
+		t.Fatalf("overview mismatch: status=%d body=%s", overview.Code, overview.Body.String())
+	}
+
+	start = time.Now()
+	stats := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/stats", token, nil)
+	if elapsed := time.Since(start); elapsed > 300*time.Millisecond {
+		t.Fatalf("stats should not wait for /traffic, elapsed=%s body=%s", elapsed, stats.Body.String())
+	}
+	if stats.Code != http.StatusOK || !strings.Contains(stats.Body.String(), `"activeConnections":1`) {
+		t.Fatalf("stats mismatch: status=%d body=%s", stats.Code, stats.Body.String())
+	}
+
+	start = time.Now()
+	traffic := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/traffic", token, nil)
+	if elapsed := time.Since(start); elapsed > 300*time.Millisecond {
+		t.Fatalf("traffic should return cached/nonblocking payload by default, elapsed=%s body=%s", elapsed, traffic.Body.String())
+	}
+	if traffic.Code != http.StatusOK {
+		t.Fatalf("traffic status=%d body=%s", traffic.Code, traffic.Body.String())
+	}
+}
+
+func TestMihomoRuntimeRoutesServeMSMPage(t *testing.T) {
+	app := newTestApp(t)
+	for _, path := range []string{"/mihomo", "/mihomo/overview", "/mihomo/proxies", "/mihomo/rules", "/mihomo/connections"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		res := httptest.NewRecorder()
+		app.Router().ServeHTTP(res, req)
+		if res.Code != http.StatusOK || strings.Contains(res.Body.String(), "msm-free-mihomo-zashboard-bridge") {
+			t.Fatalf("%s should serve MSM page without zashboard route takeover, status=%d location=%q body=%s", path, res.Code, res.Header().Get("Location"), res.Body.String())
+		}
 	}
 }
 
@@ -1046,6 +1143,29 @@ func newFakeMihomoController(t *testing.T) *httptest.Server {
 			}})
 		case "/providers/rules/directlist":
 			_ = json.NewEncoder(w).Encode(map[string]any{"name": "directlist", "vehicleType": "HTTP", "updatedAt": "2026-05-30T10:00:00Z", "rules": []any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func newSlowTrafficMihomoController(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/version":
+			_ = json.NewEncoder(w).Encode(map[string]any{"version": "v1.20.0"})
+		case "/configs":
+			_ = json.NewEncoder(w).Encode(map[string]any{"mode": "rule", "log-level": "info", "allow-lan": true, "external-controller": ":9090"})
+		case "/connections":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"downloadTotal": 128, "uploadTotal": 64,
+				"connections": []map[string]any{{"id": "slow-c1", "metadata": map[string]any{"host": "example.com"}}},
+			})
+		case "/traffic":
+			time.Sleep(time.Second)
+			_ = json.NewEncoder(w).Encode(map[string]any{"up": 1, "down": 2})
 		default:
 			http.NotFound(w, r)
 		}
