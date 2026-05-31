@@ -1,22 +1,22 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name "msm-free">
 <!ENTITY author "luochuhan">
-<!ENTITY version "0.1.10">
+<!ENTITY version "0.1.11">
 <!ENTITY githubRepo "scoltzero/msm-free">
-<!ENTITY releaseTag "v0.1.10">
-<!ENTITY packageName "msm-free-0.1.10-x86_64-1">
+<!ENTITY releaseTag "v0.1.11">
+<!ENTITY packageName "msm-free-0.1.11-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "06468a803485ceecef677cbd6010cb0c3b8bee30f8e15dac54d5a1b07be51784">
+<!ENTITY packageSHA256 "7a58fcb3fb486ea1881ff6b6fa0e6c093a25d3fd462e4876daa371df972ce7b1">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
-### msm-free 0.1.10
-- Adds the `msm` compatibility CLI for status, restart, logs, doctor, update, and uninstall workflows.
-- Adds stop and uninstall runtime support with Linux and Unraid packaging integration.
-- Uses official zashboard assets for the Mihomo Web UI while keeping MSM-style native Mihomo pages fast.
-- Adds MSM-compatible daemon and MosDNS rule import/export API shims.
+### msm-free 0.1.11
+- 系统诊断页对齐原版，只保留配置目录、配置文件、依赖项、端口、磁盘空间和文件权限 6 项检查。
+- 移除最近错误日志、服务状态和 nftables 状态对诊断健康度的影响，避免 Mihomo 普通告警造成系统误报。
+- MosDNS 规则分类对齐原版个人名单顺序，将广告拦截和在线分流改为特殊分类返回。
+- 保留旧版规则分类 URL 的兼容响应，避免历史页面或书签访问异常。
     ]]>
   </CHANGES>
 
@@ -56,8 +56,8 @@ set +e
 if [ -x /etc/rc.d/rc.msm-free ]; then
   /etc/rc.d/rc.msm-free stop
 fi
-removepkg msm-free-0.1.10-x86_64-1
-rm -f /boot/config/plugins/msm-free/msm-free-0.1.10-x86_64-1.txz
+removepkg msm-free-0.1.11-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-0.1.11-x86_64-1.txz
 echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
       ]]>
     </INLINE>

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -408,6 +409,36 @@ func TestMosDNSObservabilityAndRuleCategories(t *testing.T) {
 	for _, want := range []string{"redirect", "adguard", "online"} {
 		if !strings.Contains(res.Body.String(), want) {
 			t.Fatalf("categories missing %s: %s", want, res.Body.String())
+		}
+	}
+	var categories map[string]any
+	_ = json.Unmarshal(res.Body.Bytes(), &categories)
+	personal := categories["data"].([]any)
+	gotIDs := make([]string, 0, len(personal))
+	for _, item := range personal {
+		id := item.(map[string]any)["id"].(string)
+		gotIDs = append(gotIDs, id)
+		if id == "adguard" || id == "online" || id == "rewrite" || id == "pcdnlist" {
+			t.Fatalf("special rule-source tabs must not be returned in personal-list categories: %s", res.Body.String())
+		}
+	}
+	wantIDs := []string{"whitelist", "blocklist", "greylist", "ddnslist", "direct_ip", "redirect"}
+	if !reflect.DeepEqual(gotIDs, wantIDs) {
+		t.Fatalf("personal-list categories should match MSM order, got %#v want %#v", gotIDs, wantIDs)
+	}
+	special := categories["special_categories"].([]any)
+	if len(special) != 2 {
+		t.Fatalf("expected adguard/online in special categories: %s", res.Body.String())
+	}
+	for _, category := range []string{"adguard", "online"} {
+		ruleRes := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/rules/"+category, token, nil)
+		if ruleRes.Code != http.StatusOK {
+			t.Fatalf("special category fallback status=%d body=%s", ruleRes.Code, ruleRes.Body.String())
+		}
+		var payload map[string]any
+		_ = json.Unmarshal(ruleRes.Body.Bytes(), &payload)
+		if _, ok := payload["data"].([]any); !ok {
+			t.Fatalf("special category fallback data must remain an array for stale WebUI URLs: %s", ruleRes.Body.String())
 		}
 	}
 }
@@ -949,6 +980,18 @@ func TestConfigCompareBackupAndDiagnostics(t *testing.T) {
 	if !ok || len(checks) == 0 {
 		t.Fatalf("diagnostics checks should be a non-empty array: %#v", diagBody["checks"])
 	}
+	gotKeys := make([]string, 0, len(checks))
+	for _, row := range checks {
+		item, ok := row.(map[string]any)
+		if !ok {
+			t.Fatalf("diagnostics check row should be an object: %#v", row)
+		}
+		gotKeys = append(gotKeys, item["key"].(string))
+	}
+	wantKeys := []string{"config_dir", "config_files", "dependencies", "ports", "disk", "permissions"}
+	if !reflect.DeepEqual(gotKeys, wantKeys) {
+		t.Fatalf("diagnostics checks should match MSM system page, got %#v want %#v", gotKeys, wantKeys)
+	}
 	first, ok := checks[0].(map[string]any)
 	if !ok {
 		t.Fatalf("diagnostics check row should be an object: %#v", checks[0])
@@ -1064,7 +1107,7 @@ func TestBasicManagementUsersTokensSettingsAndDiagnostics(t *testing.T) {
 		t.Fatalf("appearance get mismatch: status=%d body=%s", appearance.Code, appearance.Body.String())
 	}
 	diagRun := requestJSON(t, app, http.MethodPost, "/api/v1/system/diagnostics/run", token, nil)
-	if diagRun.Code != http.StatusOK || !strings.Contains(diagRun.Body.String(), "服务状态") || !strings.Contains(diagRun.Body.String(), "recent_errors") {
+	if diagRun.Code != http.StatusOK || !strings.Contains(diagRun.Body.String(), "配置目录") || strings.Contains(diagRun.Body.String(), "recent_errors") {
 		t.Fatalf("diagnostics run incomplete: status=%d body=%s", diagRun.Code, diagRun.Body.String())
 	}
 	diagDownload := requestJSON(t, app, http.MethodGet, "/api/v1/system/diagnostics/download", token, nil)

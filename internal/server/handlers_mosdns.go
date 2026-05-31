@@ -595,7 +595,7 @@ func (a *App) handleMosDNSRuleGet(w http.ResponseWriter, r *http.Request) {
 		a.handleMosDNSRuleCategories(w, r)
 		return
 	}
-	if path == "online" || path == "adguard" || path == "sources" || path == "rule-sets" {
+	if path == "sources" || path == "rule-sets" {
 		a.writeMosDNSRuleSources(w, r)
 		return
 	}
@@ -1217,32 +1217,26 @@ func (a *App) handleMosDNSRuleCategories(w http.ResponseWriter, r *http.Request)
 		Name string
 	}{
 		{"whitelist", "直连"},
-		{"greylist", "代理"},
 		{"blocklist", "拦截"},
-		{"direct_ip", "直连 IP"},
+		{"greylist", "代理"},
+		{"ddnslist", "DDNS域名"},
+		{"direct_ip", "直连IP"},
 		{"redirect", "重定向"},
-		{"rewrite", "重写"},
-		{"ddnslist", "DDNS"},
-		{"pcdnlist", "PCDN"},
-		{"adguard", "广告拦截"},
-		{"online", "在线分流"},
 	}
 	items := make([]map[string]any, 0, len(defs))
 	for _, def := range defs {
 		count := len(a.readMosDNSRulePatterns(def.ID))
-		if def.ID == "adguard" {
-			count = a.mosDNSRuleSourceCount("adguard")
-		}
-		if def.ID == "online" {
-			count = a.mosDNSRuleSourceCount("srs")
-		}
 		items = append(items, map[string]any{
 			"id":    def.ID,
 			"name":  def.Name,
 			"count": count,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items})
+	special := []map[string]any{
+		{"id": "adguard", "name": "广告拦截", "count": a.mosDNSRuleSourceCount("adguard"), "tab": "adblock"},
+		{"id": "online", "name": "在线分流", "count": a.mosDNSRuleSourceCount("srs"), "tab": "routing"},
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": items, "special_categories": special, "all_categories": append(append([]map[string]any{}, items...), special...)})
 }
 
 func mosDNSRuleCategoryFile(category string) string {

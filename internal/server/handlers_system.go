@@ -80,25 +80,13 @@ func (a *App) diagnosticsPayload() map[string]any {
 	disk := diskUsage(a.DataDir)
 	diskOK := diskHealthy(disk)
 	permissionsOK := dirWritable(a.DataDir) && dirWritable(filepath.Join(a.DataDir, "logs")) && dirWritable(filepath.Join(a.DataDir, "configs"))
-	nft := a.nftStatus()
-	serviceRows := a.enhancedServiceList()
-	serviceOK := true
-	for _, item := range serviceRows {
-		if item["desired_enabled"] == true && item["running"] != true {
-			serviceOK = false
-		}
-	}
-	recentErrors := a.recentErrorLogs(40)
 	checks := []map[string]any{
 		{"name": "配置目录", "key": "config_dir", "ok": configDirOK, "message": boolMessage(configDirOK, "配置目录存在且可访问", "配置目录缺失或不可访问"), "details": filepath.Join(a.DataDir, "configs")},
 		{"name": "配置文件", "key": "config_files", "ok": configFiles["ok"], "message": configFiles["message"], "details": configFiles["details"]},
 		{"name": "依赖项", "key": "dependencies", "ok": deps["ok"], "message": deps["message"], "details": deps["details"]},
 		{"name": "端口占用", "key": "ports", "ok": true, "message": fmt.Sprintf("已检查 %d 个端口", len(ports)), "details": ports},
-		{"name": "服务状态", "key": "services", "ok": serviceOK, "message": boolMessage(serviceOK, "服务状态正常", "存在期望自启但未运行的服务"), "details": serviceRows},
-		{"name": "nftables / ip rule", "key": "nftables", "ok": nft["supported"] == true, "message": boolMessage(nft["supported"] == true, "系统支持 nftables 检查", "当前系统不支持 nftables"), "details": nft},
 		{"name": "磁盘空间", "key": "disk", "ok": diskOK, "message": boolMessage(diskOK, "磁盘空间充足", "磁盘空间不足或无法读取"), "details": disk},
 		{"name": "文件权限", "key": "permissions", "ok": permissionsOK, "message": boolMessage(permissionsOK, "具有必要的读写权限", "缺少必要的读写权限"), "details": map[string]any{"data_dir": a.DataDir}},
-		{"name": "最近错误日志", "key": "recent_errors", "ok": len(recentErrors) == 0, "message": boolMessage(len(recentErrors) == 0, "近期未发现错误日志", fmt.Sprintf("发现 %d 条错误日志", len(recentErrors))), "details": recentErrors},
 	}
 	summary := diagnosticSummary(checks)
 	uiChecks := diagnosticUIChecks(checks)
@@ -110,16 +98,13 @@ func (a *App) diagnosticsPayload() map[string]any {
 		"summary":        summary,
 		"overall_status": overallStatus,
 		"ports":          ports,
-		"services":       serviceRows,
-		"nftables":       nft,
 		"dependencies":   deps,
 		"disk":           disk,
 		"network":        readNetworkCounters(),
-		"recent_errors":  recentErrors,
 		"system":         systemInfo,
 		"system_info":    systemInfo,
 	}
-	return map[string]any{"success": true, "checks": uiChecks, "raw_checks": checks, "summary": summary, "overall_status": overallStatus, "system_info": systemInfo, "ports": ports, "recent_errors": recentErrors, "data": data}
+	return map[string]any{"success": true, "checks": uiChecks, "raw_checks": checks, "summary": summary, "overall_status": overallStatus, "system_info": systemInfo, "ports": ports, "data": data}
 }
 
 func (a *App) handleNetworkInfo(w http.ResponseWriter, r *http.Request) {
@@ -551,7 +536,7 @@ func diagnosticUIChecks(checks []map[string]any) []map[string]any {
 			status = "success"
 		}
 		key := fmtAny(check["key"])
-		if !ok && (key == "recent_errors" || key == "dependencies" || key == "nftables") {
+		if !ok && key == "dependencies" {
 			status = "warning"
 		}
 		rows = append(rows, map[string]any{
@@ -609,22 +594,4 @@ func boolMessage(ok bool, good, bad string) string {
 func diskHealthy(disk map[string]any) bool {
 	value, ok := disk["percent"].(float64)
 	return disk["ok"] == true && ok && value < 95
-}
-
-func (a *App) recentErrorLogs(limit int) []map[string]any {
-	var rows []map[string]any
-	for _, service := range []string{"msm", "mosdns", "mihomo"} {
-		for _, item := range structuredLogLines(a.serviceLogLines(service, 500)) {
-			level := strings.ToLower(fmtAny(item["level"]))
-			if level != "error" && level != "fatal" && level != "warn" {
-				continue
-			}
-			item["service"] = service
-			rows = append(rows, item)
-		}
-	}
-	if limit > 0 && len(rows) > limit {
-		return rows[len(rows)-limit:]
-	}
-	return rows
 }
