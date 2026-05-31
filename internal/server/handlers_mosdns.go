@@ -79,6 +79,15 @@ func (a *App) registerMosDNSRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/mosdns/rule-sources/{id}", a.handleMosDNSRuleSourceDelete)
 	mux.HandleFunc("POST /api/v1/mosdns/rule-sources/{id}/update", a.handleMosDNSRuleSourceUpdate)
 	mux.HandleFunc("POST /api/v1/mosdns/rule-sources/update", a.handleMosDNSRuleSourcesUpdateAll)
+	mux.HandleFunc("GET /api/v1/mosdns/adguard/rules", a.handleMosDNSAdguardRules)
+	mux.HandleFunc("POST /api/v1/mosdns/adguard/rules", a.handleMosDNSAdguardRuleCreate)
+	mux.HandleFunc("PUT /api/v1/mosdns/adguard/rules/{id}", a.handleMosDNSAdguardRulePut)
+	mux.HandleFunc("DELETE /api/v1/mosdns/adguard/rules/{id}", a.handleMosDNSAdguardRuleDelete)
+	mux.HandleFunc("POST /api/v1/mosdns/adguard/update", a.handleMosDNSAdguardUpdate)
+	mux.HandleFunc("GET /api/v1/mosdns/geosite/rules", a.handleMosDNSGeositeRules)
+	mux.HandleFunc("PUT /api/v1/mosdns/geosite/rules/{type}/{name}", a.handleMosDNSGeositeRulePut)
+	mux.HandleFunc("DELETE /api/v1/mosdns/geosite/rules/{type}/{name}", a.handleMosDNSGeositeRuleDelete)
+	mux.HandleFunc("POST /api/v1/mosdns/geosite/rules/{type}/{name}/update", a.handleMosDNSGeositeRuleUpdate)
 	mux.HandleFunc("GET /api/v1/mosdns/audit", a.handleMosDNSAudit)
 	mux.HandleFunc("GET /api/v1/mosdns/audit/rank", a.handleMosDNSAuditRank)
 	mux.HandleFunc("GET /api/v1/mosdns/audit/ranks", a.handleMosDNSAuditRank)
@@ -299,15 +308,39 @@ func (a *App) handleMosDNSClients(w http.ResponseWriter, r *http.Request) {
 		end = total
 	}
 	pageItems := filtered[start:end]
+	lastScan, _ := a.jsonSetting("mosdns_scan_task", map[string]any{}).(map[string]any)
+	lastScanAt := ""
+	if v := lastScan["completed_at"]; v != nil {
+		lastScanAt = fmtAny(v)
+	}
+	pagination := map[string]any{
+		"page": page, "limit": limit, "page_size": limit, "total": total, "total_pages": (total + limit - 1) / limit,
+	}
+	payload := map[string]any{
+		"clients":       pageItems,
+		"items":         pageItems,
+		"rows":          pageItems,
+		"list":          pageItems,
+		"zones":         zones,
+		"requires_scan": total == 0,
+		"last_scan_at":  lastScanAt,
+		"pagination":    pagination,
+		"page":          page,
+		"page_size":     limit,
+		"limit":         limit,
+		"total":         total,
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"data":    pageItems,
-		"items":   pageItems,
-		"clients": pageItems,
-		"zones":   zones,
-		"pagination": map[string]any{
-			"page": page, "limit": limit, "page_size": limit, "total": total, "total_pages": (total + limit - 1) / limit,
-		},
+		"success":       true,
+		"data":          payload,
+		"items":         pageItems,
+		"clients":       pageItems,
+		"rows":          pageItems,
+		"zones":         zones,
+		"requires_scan": total == 0,
+		"last_scan_at":  lastScanAt,
+		"pagination":    pagination,
+		"total":         total,
 	})
 }
 
@@ -427,22 +460,25 @@ func (a *App) handleMosDNSClientMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMosDNSClientScan(w http.ResponseWriter, r *http.Request) {
-	found := scanNeighbors()
+	iface := strings.TrimSpace(r.URL.Query().Get("interface"))
+	found, meta := a.scanMosDNSClientSources(iface)
 	now := time.Now()
 	allowIPs := a.mosDNSClientIPSet()
 	for _, item := range found {
-		status := "unscanned"
-		if allowIPs[item["ip"]] {
-			status = "allow"
-		}
-		_, _ = a.DB.Exec(`insert into mosdns_clients(mac,ip,hostname,source,type,first_seen_at,last_seen_at,last_scan_at,interface,is_online,created_at,updated_at)
-			values(?,?,?,?,?,?,?,?,?,?,?,?)
-			on conflict(mac,ip) do update set hostname=excluded.hostname,last_seen_at=excluded.last_seen_at,last_scan_at=excluded.last_scan_at,interface=excluded.interface,is_online=true,updated_at=excluded.updated_at`,
-			item["mac"], item["ip"], item["hostname"], "scan", status, now, now, now, item["interface"], true, now, now)
+		_ = a.upsertMosDNSScannedClient(item, allowIPs, now)
 	}
-	task := map[string]any{"id": "latest", "status": "completed", "running": false, "progress": 100, "found": len(found), "total": len(found), "completed_at": now.Format(time.RFC3339)}
+	taskID := "latest"
+	task := map[string]any{
+		"id": taskID, "task_id": taskID, "status": "success", "running": false, "progress": 100,
+		"found": len(found), "found_count": len(found), "total": len(found), "completed_at": now.Format(time.RFC3339),
+		"sources": meta["sources"], "warnings": meta["warnings"],
+	}
 	a.storeJSONSetting("mosdns_scan_task", task)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "count": len(found), "data": found, "task": task})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true, "task_id": taskID, "status": "success", "progress": 100, "count": len(found), "found_count": len(found),
+		"data":    map[string]any{"task_id": taskID, "status": "success", "progress": 100, "found_count": len(found), "clients": found, "task": task},
+		"clients": found, "task": task,
+	})
 }
 
 func (a *App) handleMosDNSClientScanReset(w http.ResponseWriter, r *http.Request) {
@@ -451,12 +487,18 @@ func (a *App) handleMosDNSClientScanReset(w http.ResponseWriter, r *http.Request
 }
 
 func (a *App) handleMosDNSClientScanTask(w http.ResponseWriter, r *http.Request) {
-	fallback := map[string]any{"id": r.PathValue("id"), "status": "completed", "running": false, "progress": 100, "found": a.countTable("mosdns_clients")}
+	fallback := map[string]any{"id": r.PathValue("id"), "task_id": r.PathValue("id"), "status": "success", "running": false, "progress": 100, "found": a.countTable("mosdns_clients"), "found_count": a.countTable("mosdns_clients")}
 	task, _ := a.jsonSetting("mosdns_scan_task", fallback).(map[string]any)
 	if task["id"] == "" {
 		task["id"] = r.PathValue("id")
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": task})
+	if task["task_id"] == "" {
+		task["task_id"] = task["id"]
+	}
+	if task["found_count"] == nil {
+		task["found_count"] = task["found"]
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": task, "task": task, "status": task["status"], "progress": task["progress"], "found_count": task["found_count"]})
 }
 
 func (a *App) handleMosDNSClientIPs(w http.ResponseWriter, r *http.Request) {
@@ -955,7 +997,10 @@ func (a *App) handleMosDNSClientIPListGet(w http.ResponseWriter, r *http.Request
 		_ = rows.Scan(&ip)
 		ips = append(ips, ip)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": ips, "ips": ips})
+	if ips == nil {
+		ips = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"ips": ips, "items": ips, "total": len(ips)}, "ips": ips, "items": ips, "total": len(ips)})
 }
 
 func (a *App) handleMosDNSClientIPListPut(w http.ResponseWriter, r *http.Request) {
@@ -1011,7 +1056,16 @@ func (a *App) handleMosDNSSystemFeatureSwitchesPut(w http.ResponseWriter, r *htt
 }
 
 func (a *App) handleMosDNSLogCapacity(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"capacity": a.setting("mosdns_log_capacity", "5000")}})
+	capacity := a.setting("mosdns_log_capacity", "")
+	if capacity == "" {
+		if raw, ok := a.readJSONFile("configs/mosdns/audit_settings.json", map[string]any{"capacity": 100000}).(map[string]any); ok {
+			capacity = fmtAny(raw["capacity"])
+		}
+	}
+	if capacity == "" {
+		capacity = "100000"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"capacity": capacity}})
 }
 
 func (a *App) handleMosDNSLogCapacityPut(w http.ResponseWriter, r *http.Request) {
@@ -1027,11 +1081,12 @@ func (a *App) handleMosDNSLogCapacityPut(w http.ResponseWriter, r *http.Request)
 		value = strings.TrimSpace(fmtAny(req.Capacity))
 	}
 	a.setSetting("mosdns_log_capacity", value)
+	_ = a.writeJSONFile("configs/mosdns/audit_settings.json", map[string]any{"capacity": value})
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{"capacity": value}})
 }
 
 func (a *App) handleMosDNSOverrides(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.jsonSetting("mosdns_overrides", map[string]any{})})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.jsonSettingWithFileFallback("mosdns_overrides", "configs/mosdns/config_overrides.json", map[string]any{})})
 }
 
 func (a *App) handleMosDNSOverridesPut(w http.ResponseWriter, r *http.Request) {
@@ -1041,6 +1096,7 @@ func (a *App) handleMosDNSOverridesPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.storeJSONSetting("mosdns_overrides", req)
+	_ = a.writeJSONFile("configs/mosdns/config_overrides.json", req)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": req, "restart_required": true})
 }
 
@@ -1102,7 +1158,7 @@ func (a *App) handleMosDNSSwitchesPutCompat(w http.ResponseWriter, r *http.Reque
 }
 
 func (a *App) handleMosDNSUpstreamOverrides(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.jsonSetting("mosdns_upstream_overrides", map[string]any{})})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.jsonSettingWithFileFallback("mosdns_upstream_overrides", "configs/mosdns/upstream_overrides.json", map[string]any{})})
 }
 
 func (a *App) handleMosDNSUpstreamOverridesPut(w http.ResponseWriter, r *http.Request) {
@@ -1112,6 +1168,7 @@ func (a *App) handleMosDNSUpstreamOverridesPut(w http.ResponseWriter, r *http.Re
 		return
 	}
 	a.storeJSONSetting("mosdns_upstream_overrides", req)
+	_ = a.writeJSONFile("configs/mosdns/upstream_overrides.json", req)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": req, "restart_required": true})
 }
 
@@ -1280,40 +1337,6 @@ func (a *App) rewriteMosDNSClientIPFile() error {
 		lines = append(lines, ip)
 	}
 	return a.writeTextFile("configs/mosdns/client_ip.txt", strings.Join(lines, "\n")+"\n")
-}
-
-func scanNeighbors() []map[string]string {
-	out, err := exec.Command("ip", "neigh").CombinedOutput()
-	if err != nil {
-		out, err = exec.Command("arp", "-an").CombinedOutput()
-		if err != nil {
-			return nil
-		}
-	}
-	var items []map[string]string
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		item := map[string]string{"ip": strings.Trim(fields[0], "()"), "mac": "", "hostname": "", "interface": ""}
-		for i, f := range fields {
-			switch f {
-			case "dev":
-				if i+1 < len(fields) {
-					item["interface"] = fields[i+1]
-				}
-			case "lladdr", "at":
-				if i+1 < len(fields) {
-					item["mac"] = fields[i+1]
-				}
-			}
-		}
-		if net.ParseIP(item["ip"]) != nil {
-			items = append(items, item)
-		}
-	}
-	return items
 }
 
 func nullableTimeString(v sql.NullTime) string {

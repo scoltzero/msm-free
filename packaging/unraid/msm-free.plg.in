@@ -13,10 +13,10 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Adds Mihomo overview/statistics compatibility fields and fixes the network information card.
-- Improves MSM-style JSON application logs, log parsing, log streaming, and service log display.
-- Creates an MSM-like runtime directory layout including msm.pid, logs/msm.log, database/msm.db, supervisor stubs, and MosDNS/Mihomo compatibility folders.
-- Keeps setup activation, network-interface, and stale asset recovery fixes from prior test builds.
+- Adds MSM-compatible MosDNS adblock and online split-routing rule endpoints.
+- Restores MosDNS system-function defaults for upstream DNS, FakeIP upstreams, switches, cache, and log capacity.
+- Improves MosDNS client scanning with ARP/neigh/procfs/allowlist/DNS-log discovery and MSM-compatible scan task responses.
+- Fixes the MosDNS client page response shape so the static WebUI can render scanned clients.
     ]]>
   </CHANGES>
 

@@ -461,6 +461,9 @@ func (s *mosDNSRuleSource) hydrateRuntimeFields() {
 			s.SourceType = "srs"
 		}
 	}
+	if s.Type == "" && s.SourceType == "adguard" {
+		s.Type = "adguard"
+	}
 	if s.ID == "" {
 		s.ID = mosDNSRuleSourceID(*s)
 	}
@@ -493,6 +496,9 @@ func mosDNSRuleSourceConfigRel(s mosDNSRuleSource) string {
 func mosDNSRuleSourceLocalRel(s mosDNSRuleSource) string {
 	files := filepath.ToSlash(strings.TrimSpace(s.Files))
 	files = strings.TrimPrefix(files, "/")
+	if files == "" && s.SourceType == "adguard" && s.ID != "" {
+		files = filepath.ToSlash(filepath.Join("adguard", s.ID+".rules"))
+	}
 	if files == "" {
 		files = filepath.ToSlash(filepath.Join(s.SourceType, safeRuleFileName(s.Name)+".txt"))
 	}

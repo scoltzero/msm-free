@@ -17,12 +17,12 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 	app := newTestApp(t)
 	body := map[string]any{
 		"username":             "root",
-		"password":             "86558781",
-		"confirmPassword":      "86558781",
+		"password":             "test-password-123",
+		"confirmPassword":      "test-password-123",
 		"webPort":              "17777",
 		"selected_interface":   "eth0",
 		"subscription_urls":    "机场A|https://example.com/a.yaml\nhttps://example.com/b.yaml",
-		"mihomo_proxies":       "vless://c20c7f96-e1a1-4203-bffa-888ef04959fd@example.com:443?encryption=none&security=reality&type=tcp&sni=gateway.icloud.com&fp=chrome&pbk=abc&sid=123&flow=xtls-rprx-vision#USxDMITan4pro-vless_reality_vision",
+		"mihomo_proxies":       "vless://00000000-0000-4000-8000-000000000000@example.com:443?encryption=none&security=reality&type=tcp&sni=example.com&fp=chrome&pbk=abc&sid=123&flow=xtls-rprx-vision#manual-test-node",
 		"enableIPv6":           true,
 		"nft_proxy_policy":     "direct_default",
 		"fakeIPRangeV4":        "28.0.0.0/8",
@@ -49,7 +49,7 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 	if got := app.setting(nftDesiredKey, ""); got != "true" {
 		t.Fatalf("nftables should be enabled after setup, got %q", got)
 	}
-	login := requestJSON(t, app, http.MethodPost, "/api/v1/auth/login", "", map[string]string{"username": "root", "password": "86558781"})
+	login := requestJSON(t, app, http.MethodPost, "/api/v1/auth/login", "", map[string]string{"username": "root", "password": "test-password-123"})
 	if login.Code != http.StatusOK {
 		t.Fatalf("login status=%d body=%s", login.Code, login.Body.String())
 	}
@@ -73,7 +73,7 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 		t.Fatal(err)
 	}
 	manualText := string(manualProvider)
-	for _, want := range []string{"proxies:", "type: vless", "server: example.com", "port: 443", "uuid: c20c7f96-e1a1-4203-bffa-888ef04959fd", "reality-opts:", "public-key: abc", "short-id: \"123\"", "flow: xtls-rprx-vision"} {
+	for _, want := range []string{"proxies:", "type: vless", "server: example.com", "port: 443", "uuid: 00000000-0000-4000-8000-000000000000", "reality-opts:", "public-key: abc", "short-id: \"123\"", "flow: xtls-rprx-vision"} {
 		if !strings.Contains(manualText, want) {
 			t.Fatalf("manual provider missing %q:\n%s", want, manualText)
 		}
@@ -414,6 +414,70 @@ func TestMosDNSRuleSourceManagementAndUpdate(t *testing.T) {
 	}
 	if _, err := os.Stat(local); !os.IsNotExist(err) {
 		t.Fatalf("expected local rule file deleted, err=%v", err)
+	}
+}
+
+func TestMosDNSMSMCompatRuleAndSystemEndpoints(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+
+	adguard := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/adguard/rules", token, nil)
+	if adguard.Code != http.StatusOK || !strings.Contains(adguard.Body.String(), "httpdns") || !strings.Contains(adguard.Body.String(), "pcdn1") {
+		t.Fatalf("adguard compat endpoint missing defaults: status=%d body=%s", adguard.Code, adguard.Body.String())
+	}
+	geosite := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/geosite/rules", token, nil)
+	if geosite.Code != http.StatusOK || !strings.Contains(geosite.Body.String(), "geosite_cn") || !strings.Contains(geosite.Body.String(), "geoip_cn") || !strings.Contains(geosite.Body.String(), "tiktok") {
+		t.Fatalf("geosite compat endpoint missing defaults: status=%d body=%s", geosite.Code, geosite.Body.String())
+	}
+	filtered := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/geosite/rules?type=geosite_no_cn", token, nil)
+	if filtered.Code != http.StatusOK || !strings.Contains(filtered.Body.String(), "geosite_no_cn") || strings.Contains(filtered.Body.String(), "geoip_cn") {
+		t.Fatalf("geosite filter mismatch: status=%d body=%s", filtered.Code, filtered.Body.String())
+	}
+	upsert := requestJSON(t, app, http.MethodPut, "/api/v1/mosdns/geosite/rules/cusnocn/unit_rule", token, map[string]any{
+		"name": "unit_rule", "type": "cusnocn", "files": "srs/unit_rule.srs", "url": "https://example.com/unit_rule.srs", "enabled": true,
+	})
+	if upsert.Code != http.StatusOK || !strings.Contains(upsert.Body.String(), "unit_rule") {
+		t.Fatalf("geosite upsert failed: status=%d body=%s", upsert.Code, upsert.Body.String())
+	}
+	overrides := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/system/overrides", token, nil)
+	if overrides.Code != http.StatusOK || !strings.Contains(overrides.Body.String(), "127.0.0.1:7891") || !strings.Contains(overrides.Body.String(), "2408:8214:213::1") {
+		t.Fatalf("system overrides should fall back to mssb template: status=%d body=%s", overrides.Code, overrides.Body.String())
+	}
+	upstreams := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/system/upstream-overrides", token, nil)
+	if upstreams.Code != http.StatusOK || !strings.Contains(upstreams.Body.String(), "domestic") || !strings.Contains(upstreams.Body.String(), "nocnfake") {
+		t.Fatalf("upstream overrides should fall back to mssb template: status=%d body=%s", upstreams.Code, upstreams.Body.String())
+	}
+	capacity := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/system/log-capacity", token, nil)
+	if capacity.Code != http.StatusOK || !strings.Contains(capacity.Body.String(), "100000") {
+		t.Fatalf("log capacity should use mssb audit default: status=%d body=%s", capacity.Code, capacity.Body.String())
+	}
+}
+
+func TestMosDNSClientScanMSMCompatShape(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	now := time.Now()
+	if _, err := app.DB.Exec(`insert into mosdns_client_ips(ip,comment,created_at,updated_at) values(?,?,?,?)`, "192.168.10.50", "unit", now, now); err != nil {
+		t.Fatal(err)
+	}
+	scan := requestJSON(t, app, http.MethodPost, "/api/v1/mosdns/clients/scan", token, nil)
+	if scan.Code != http.StatusOK || !strings.Contains(scan.Body.String(), `"task_id":"latest"`) || !strings.Contains(scan.Body.String(), `"status":"success"`) || !strings.Contains(scan.Body.String(), `"found_count"`) {
+		t.Fatalf("scan response shape mismatch: status=%d body=%s", scan.Code, scan.Body.String())
+	}
+	if !strings.Contains(scan.Body.String(), "192.168.10.50") {
+		t.Fatalf("scan should include allowlist clients even when ARP is empty: %s", scan.Body.String())
+	}
+	task := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/clients/scan/latest", token, nil)
+	if task.Code != http.StatusOK || !strings.Contains(task.Body.String(), `"status":"success"`) || !strings.Contains(task.Body.String(), `"found_count"`) {
+		t.Fatalf("scan task response shape mismatch: status=%d body=%s", task.Code, task.Body.String())
+	}
+	clients := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/clients?page=1&page_size=10", token, nil)
+	if clients.Code != http.StatusOK || !strings.Contains(clients.Body.String(), `"data":{"clients":[`) || !strings.Contains(clients.Body.String(), `"requires_scan":false`) {
+		t.Fatalf("clients response should keep MSM-compatible data object: status=%d body=%s", clients.Code, clients.Body.String())
+	}
+	clientIPs := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/system/client-ip-list", token, nil)
+	if clientIPs.Code != http.StatusOK || !strings.Contains(clientIPs.Body.String(), `"data":{"ips":[`) || strings.Contains(clientIPs.Body.String(), `"ips":null`) {
+		t.Fatalf("client ip list response should expose non-null ips object: status=%d body=%s", clientIPs.Code, clientIPs.Body.String())
 	}
 }
 
