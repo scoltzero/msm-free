@@ -60,7 +60,7 @@ func (a *App) mihomoSnapshot() map[string]any {
 		"redir":      a.tcpPortOpen("127.0.0.1", ports["redir"]),
 		"tproxy":     a.tcpPortOpen("127.0.0.1", ports["tproxy"]),
 	}
-	return map[string]any{
+	snapshot := map[string]any{
 		"service":              service,
 		"status":               service.Status,
 		"running":              service.Running,
@@ -83,7 +83,7 @@ func (a *App) mihomoSnapshot() map[string]any {
 		"connection_count":     connections["total"],
 		"proxies":              proxies,
 		"proxy_group_count":    len(anyMapSlice(proxies["groups"])),
-		"proxy_count":          len(anyMapSlice(proxies["proxies"])),
+		"proxy_count":          len(anyMapSlice(proxies["proxy_list"])),
 		"rules":                rules,
 		"rule_count":           rules["total"],
 		"providers":            providers,
@@ -91,6 +91,91 @@ func (a *App) mihomoSnapshot() map[string]any {
 		"rule_provider_count":  len(anyMapSlice(providers["rule_providers"])),
 		"config":               map[string]any{"path": "configs/mihomo/config.yaml", "active": a.setting("mihomo.active_config", "config.yaml")},
 	}
+	stats := mihomoStatsFromSnapshot(snapshot)
+	snapshot["stats"] = stats
+	snapshot["uploadSpeed"] = stats["uploadSpeed"]
+	snapshot["downloadSpeed"] = stats["downloadSpeed"]
+	snapshot["upload_speed"] = stats["upload_speed"]
+	snapshot["download_speed"] = stats["download_speed"]
+	snapshot["uploadTotal"] = stats["uploadTotal"]
+	snapshot["downloadTotal"] = stats["downloadTotal"]
+	snapshot["upload_total"] = stats["upload_total"]
+	snapshot["download_total"] = stats["download_total"]
+	snapshot["activeConnections"] = stats["activeConnections"]
+	snapshot["active_connections"] = stats["active_connections"]
+	return snapshot
+}
+
+func mihomoStatsFromSnapshot(snapshot map[string]any) map[string]any {
+	traffic, _ := snapshot["traffic"].(map[string]any)
+	connections, _ := snapshot["connections"].(map[string]any)
+	connectionItems := anyMapSlice(connections["connections"])
+	activeConnections := intAny(connections["active_count"], len(connectionItems))
+	if activeConnections == 0 && len(connectionItems) > 0 {
+		activeConnections = len(connectionItems)
+	}
+	downloadSpeed := numericMapValue(traffic, "down")
+	if downloadSpeed == 0 {
+		downloadSpeed = numericMapValue(traffic, "download")
+	}
+	uploadSpeed := numericMapValue(traffic, "up")
+	if uploadSpeed == 0 {
+		uploadSpeed = numericMapValue(traffic, "upload")
+	}
+	downloadTotal := numericMapValue(connections, "downloadTotal")
+	if downloadTotal == 0 {
+		downloadTotal = numericMapValue(connections, "download_total")
+	}
+	uploadTotal := numericMapValue(connections, "uploadTotal")
+	if uploadTotal == 0 {
+		uploadTotal = numericMapValue(connections, "upload_total")
+	}
+	proxyProviderCount := intAny(snapshot["proxy_provider_count"], 0)
+	ruleProviderCount := intAny(snapshot["rule_provider_count"], 0)
+	ruleCount := intAny(snapshot["rule_count"], 0)
+	proxyGroupCount := intAny(snapshot["proxy_group_count"], 0)
+	proxyCount := intAny(snapshot["proxy_count"], 0)
+	stats := map[string]any{
+		"status":               snapshot["status"],
+		"running":              snapshot["running"],
+		"version":              snapshot["version"],
+		"pid":                  snapshot["pid"],
+		"cpu":                  numericAny(snapshot["cpu"]),
+		"cpu_percent":          numericAny(snapshot["cpu"]),
+		"memory":               numericAny(snapshot["memory"]),
+		"memory_bytes":         numericAny(snapshot["memory"]),
+		"uptime":               snapshot["uptime"],
+		"traffic":              traffic,
+		"connections":          connections,
+		"connection_count":     activeConnections,
+		"connections_count":    activeConnections,
+		"activeConnections":    activeConnections,
+		"active_connections":   activeConnections,
+		"downloadSpeed":        downloadSpeed,
+		"download_speed":       downloadSpeed,
+		"down":                 downloadSpeed,
+		"uploadSpeed":          uploadSpeed,
+		"upload_speed":         uploadSpeed,
+		"up":                   uploadSpeed,
+		"downloadTotal":        downloadTotal,
+		"download_total":       downloadTotal,
+		"uploadTotal":          uploadTotal,
+		"upload_total":         uploadTotal,
+		"proxyProviderCount":   proxyProviderCount,
+		"proxy_provider_count": proxyProviderCount,
+		"ruleProviderCount":    ruleProviderCount,
+		"rule_provider_count":  ruleProviderCount,
+		"ruleCount":            ruleCount,
+		"rule_count":           ruleCount,
+		"proxyGroupCount":      proxyGroupCount,
+		"proxy_group_count":    proxyGroupCount,
+		"proxyCount":           proxyCount,
+		"proxy_count":          proxyCount,
+		"controller_available": snapshot["controller_available"],
+		"health":               snapshot["health"],
+		"ports":                snapshot["ports"],
+	}
+	return stats
 }
 
 func (a *App) mihomoControllerBase() string {
@@ -345,24 +430,29 @@ func (a *App) mihomoProxiesPayload(r *http.Request) map[string]any {
 	if !ok {
 		rawProviders = map[string]any{"providers": map[string]any{}}
 	}
-	groups, proxies := normalizeMihomoProxies(rawProxies)
+	proxyMap, groups, proxies := normalizeMihomoProxies(rawProxies)
 	if r != nil {
 		search := strings.ToLower(strings.TrimSpace(firstNonEmpty(r.URL.Query().Get("search"), r.URL.Query().Get("q"))))
 		if search != "" {
 			proxies = filterMihomoProxyList(proxies, search)
 			groups = filterMihomoProxyList(groups, search)
+			proxyMap = filterMihomoProxyMap(proxyMap, search)
 		}
 	}
 	return map[string]any{
-		"groups":    groups,
-		"proxies":   proxies,
-		"providers": normalizeProviderMap(rawProviders["providers"]),
-		"raw":       rawProxies,
+		"groups":       groups,
+		"proxy_groups": groups,
+		"proxy_list":   proxies,
+		"nodes":        proxies,
+		"proxies":      proxyMap,
+		"providers":    normalizeProviderMap(rawProviders["providers"]),
+		"raw":          rawProxies,
 	}
 }
 
-func normalizeMihomoProxies(raw map[string]any) ([]map[string]any, []map[string]any) {
+func normalizeMihomoProxies(raw map[string]any) (map[string]any, []map[string]any, []map[string]any) {
 	proxyMap, _ := raw["proxies"].(map[string]any)
+	byName := map[string]any{}
 	var groups []map[string]any
 	var proxies []map[string]any
 	groupTypes := map[string]bool{"Selector": true, "URLTest": true, "Fallback": true, "LoadBalance": true, "Relay": true}
@@ -371,16 +461,27 @@ func normalizeMihomoProxies(raw map[string]any) ([]map[string]any, []map[string]
 		if !ok {
 			continue
 		}
+		all := stringSlice(item["all"])
 		row := map[string]any{
-			"name":    firstNonEmpty(stringMapValue(item, "name"), name),
-			"type":    stringMapValue(item, "type"),
-			"now":     stringMapValue(item, "now"),
-			"all":     stringSlice(item["all"]),
-			"udp":     boolMapValue(item, "udp", false),
-			"delay":   latestProxyDelay(item),
-			"history": item["history"],
-			"raw":     item,
+			"name":          firstNonEmpty(stringMapValue(item, "name"), name),
+			"type":          stringMapValue(item, "type"),
+			"now":           stringMapValue(item, "now"),
+			"all":           all,
+			"all_count":     len(all),
+			"udp":           boolMapValue(item, "udp", false),
+			"delay":         latestProxyDelay(item),
+			"history":       item["history"],
+			"icon":          stringMapValue(item, "icon"),
+			"hidden":        boolMapValue(item, "hidden", false),
+			"alive":         boolMapValue(item, "alive", true),
+			"provider":      firstNonEmpty(stringMapValue(item, "provider"), stringMapValue(item, "providerName"), stringMapValue(item, "provider-name")),
+			"provider_name": firstNonEmpty(stringMapValue(item, "providerName"), stringMapValue(item, "provider-name"), stringMapValue(item, "provider")),
+			"raw":           item,
 		}
+		if row["provider_name"] != "" {
+			row["provider-name"] = row["provider_name"]
+		}
+		byName[stringMapValue(row, "name")] = row
 		if groupTypes[stringMapValue(item, "type")] || len(stringSlice(item["all"])) > 0 {
 			groups = append(groups, row)
 		} else {
@@ -389,7 +490,7 @@ func normalizeMihomoProxies(raw map[string]any) ([]map[string]any, []map[string]
 	}
 	sort.Slice(groups, func(i, j int) bool { return stringMapValue(groups[i], "name") < stringMapValue(groups[j], "name") })
 	sort.Slice(proxies, func(i, j int) bool { return stringMapValue(proxies[i], "name") < stringMapValue(proxies[j], "name") })
-	return groups, proxies
+	return byName, groups, proxies
 }
 
 func (a *App) mihomoRulesRuntime(r *http.Request) map[string]any {
@@ -896,6 +997,22 @@ func filterMihomoProxyList(items []map[string]any, search string) []map[string]a
 	return out
 }
 
+func filterMihomoProxyMap(items map[string]any, search string) map[string]any {
+	out := map[string]any{}
+	for name, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.Contains(strings.ToLower(strings.Join([]string{
+			name, stringMapValue(m, "name"), stringMapValue(m, "type"), stringMapValue(m, "now"), stringMapValue(m, "provider_name"),
+		}, " ")), search) {
+			out[name] = item
+		}
+	}
+	return out
+}
+
 func latestProxyDelay(item map[string]any) float64 {
 	history := anySlice(item["history"])
 	if len(history) == 0 {
@@ -987,6 +1104,28 @@ func numericMapValue(m map[string]any, key string) float64 {
 		return n
 	}
 	return 0
+}
+
+func intAny(value any, fallback int) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case json.Number:
+		n, err := v.Int64()
+		if err == nil {
+			return int(n)
+		}
+	case string:
+		n, err := strconv.Atoi(v)
+		if err == nil {
+			return n
+		}
+	}
+	return fallback
 }
 
 func boolMapValue(m map[string]any, key string, fallback bool) bool {

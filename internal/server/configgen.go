@@ -3,9 +3,11 @@ package server
 import (
 	"fmt"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -58,10 +60,10 @@ func (c *SetupConfig) defaults() {
 		c.DNSOff = "223.5.5.5"
 	}
 	if c.FakeIPRangeV4 == "" {
-		c.FakeIPRangeV4 = "28.0.0.1/8"
+		c.FakeIPRangeV4 = "28.0.0.0/8"
 	}
 	if c.FakeIPRangeV6 == "" {
-		c.FakeIPRangeV6 = "2001:2::/64"
+		c.FakeIPRangeV6 = "f2b0::/18"
 	}
 	if c.LinuxProxyMode == "" {
 		c.LinuxProxyMode = "nft"
@@ -126,6 +128,9 @@ func (a *App) writeGeneratedConfigs(cfg SetupConfig) error {
 		"configs/network/network.yaml":     a.renderNetworkYAML(cfg),
 		"configs/network/network.nft":      a.renderNFT(cfg),
 		"configs/singbox/config.json":      renderDisabledSingBoxJSON(),
+	}
+	if manual := renderMihomoManualProviderYAML(cfg.MihomoProxies); strings.TrimSpace(manual) != "" {
+		files["configs/mihomo/proxy_providers/msm_manual.yaml"] = manual
 	}
 	for rel, content := range files {
 		if err := a.writeTextFile(rel, content); err != nil {
@@ -195,11 +200,11 @@ func renderMihomoTemplate(template string, cfg SetupConfig) string {
 	content = strings.ReplaceAll(content, "ipv6: true", "ipv6: "+ipv6)
 	content = strings.Replace(content, "external-ui: /mssb/mihomo/ui", "external-ui: ui", 1)
 	content = strings.Replace(content, "fake-ip-range: 28.0.0.1/8", "fake-ip-range: "+normalizeMihomoFakeIPv4Range(cfg.FakeIPRangeV4), 1)
-	return replaceMihomoProxyProviders(content, renderProxyProvidersYAML(parseSubscriptionProviders(cfg.SubscriptionURLs)))
+	return replaceMihomoProxyProviders(content, renderProxyProvidersYAML(parseSubscriptionProviders(cfg.SubscriptionURLs), hasMihomoManualProxies(cfg.MihomoProxies)))
 }
 
 func renderMihomoFallbackYAML(cfg SetupConfig) string {
-	providerYAML := renderProxyProvidersYAML(parseSubscriptionProviders(cfg.SubscriptionURLs))
+	providerYAML := renderProxyProvidersYAML(parseSubscriptionProviders(cfg.SubscriptionURLs), hasMihomoManualProxies(cfg.MihomoProxies))
 	ipv6 := boolYAML(cfg.EnableIPv6)
 	return fmt.Sprintf(`# msm-free generated Mihomo config
 mode: rule
@@ -246,7 +251,7 @@ dns:
     - 127.0.0.1:8888
 proxy-groups:
   - {name: 节点选择, type: select, proxies: [手动切换, 全球直连]}
-  - {name: 手动切换, type: select, proxies: [DIRECT], include-all-providers: true}
+  - {name: 手动切换, type: select, proxies: [DIRECT], include-all: true, include-all-proxies: true, include-all-providers: true}
   - {name: 漏网之鱼, type: select, proxies: [节点选择, 全球直连]}
   - {name: 全球直连, type: select, proxies: [DIRECT]}
 rules:
@@ -261,25 +266,25 @@ rules:
 %s`, selectedInterface(cfg.SelectedInterface), ipv6, ipv6, normalizeMihomoFakeIPv4Range(cfg.FakeIPRangeV4), providerYAML)
 }
 
-func renderProxyProvidersYAML(providers map[string]string) string {
-	if len(providers) == 0 {
+func renderProxyProvidersYAML(providers map[string]string, includeManual bool) string {
+	if len(providers) == 0 && !includeManual {
 		return "proxy-providers: {}\n"
 	}
-	if len(providers) > 0 {
-		var b strings.Builder
-		b.WriteString("proxy-providers:\n")
-		keys := make([]string, 0, len(providers))
-		for k := range providers {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, tag := range keys {
-			url := providers[tag]
-			b.WriteString(fmt.Sprintf("  %q:\n    type: http\n    url: %q\n    interval: 3600\n    path: ./proxy_providers/%s.yaml\n    health-check:\n      enable: true\n      url: http://detectportal.firefox.com/success.txt\n      interval: 120\n", tag, url, safeFilename(tag)))
-		}
-		return b.String()
+	var b strings.Builder
+	b.WriteString("proxy-providers:\n")
+	if includeManual {
+		b.WriteString("  msm_manual:\n    type: file\n    path: './proxy_providers/msm_manual.yaml'\n    health-check:\n      enable: true\n      url: http://detectportal.firefox.com/success.txt\n      interval: 120\n")
 	}
-	return "proxy-providers: {}\n"
+	keys := make([]string, 0, len(providers))
+	for k := range providers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, tag := range keys {
+		subscriptionURL := providers[tag]
+		b.WriteString(fmt.Sprintf("  %q:\n    type: http\n    url: %q\n    interval: 3600\n    path: './proxy_providers/%s.yaml'\n    health-check:\n      enable: true\n      url: http://detectportal.firefox.com/success.txt\n      interval: 120\n", tag, subscriptionURL, safeFilename(tag)))
+	}
+	return b.String()
 }
 
 func (a *App) renderMosDNSYAML(cfg SetupConfig) string {
@@ -291,6 +296,7 @@ func (a *App) renderMosDNSYAML(cfg SetupConfig) string {
 		}
 		content = strings.ReplaceAll(content, "28.0.0.0/8", fakeIPv4RouteCIDR(cfg.FakeIPRangeV4))
 		content = strings.ReplaceAll(content, "2001:2::/64", fakeIPv6RouteCIDR(cfg.FakeIPRangeV6))
+		content = strings.ReplaceAll(content, "f2b0::/18", fakeIPv6RouteCIDR(cfg.FakeIPRangeV6))
 		return content
 	}
 	return fmt.Sprintf(`log:
@@ -427,11 +433,13 @@ table inet msm_free {
 
   set dns_ipv4 {
     type ipv4_addr
+    flags interval
     elements = { 8.8.8.8/32, 8.8.4.4/32, 1.0.0.1/32, 1.1.1.1/32, 9.9.9.9/32 }
   }
 
   set dns_ipv6 {
     type ipv6_addr
+    flags interval
     elements = { 2001:4860:4860::8888/128, 2001:4860:4860::8844/128, 2606:4700:4700::1111/128, 2606:4700:4700::1001/128 }
   }
 
@@ -578,7 +586,7 @@ func fakeIPv4RouteCIDR(v string) string {
 func fakeIPv6RouteCIDR(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" {
-		v = "2001:2::/64"
+		v = "f2b0::/18"
 	}
 	if p, err := netip.ParsePrefix(v); err == nil {
 		return p.Masked().String()
@@ -586,7 +594,7 @@ func fakeIPv6RouteCIDR(v string) string {
 	if addr, err := netip.ParseAddr(v); err == nil && addr.Is6() {
 		return netip.PrefixFrom(addr, 64).Masked().String()
 	}
-	return "2001:2::/64"
+	return "f2b0::/18"
 }
 
 func nftInterfaceSet(iface string) string {
@@ -633,6 +641,196 @@ func parseSubscriptionProviders(input string) map[string]string {
 		}
 	}
 	return out
+}
+
+func hasMihomoManualProxies(input string) bool {
+	return strings.TrimSpace(input) != ""
+}
+
+func renderMihomoManualProviderYAML(input string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return ""
+	}
+	if strings.HasPrefix(input, "proxies:") {
+		return strings.TrimRight(input, "\n") + "\n"
+	}
+	if strings.HasPrefix(input, "- ") {
+		return "proxies:\n" + indentYAML(input, 2)
+	}
+	proxies := parseMihomoManualProxyLinks(input)
+	if len(proxies) == 0 {
+		return "proxies: []\n"
+	}
+	payload := map[string]any{"proxies": proxies}
+	b, err := yaml.Marshal(payload)
+	if err != nil {
+		return "proxies: []\n"
+	}
+	return string(b)
+}
+
+func parseMihomoManualProxyLinks(input string) []map[string]any {
+	var proxies []map[string]any
+	for _, token := range strings.Fields(input) {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		if proxy, ok := parseMihomoManualProxyLink(token); ok {
+			proxies = append(proxies, proxy)
+		}
+	}
+	return proxies
+}
+
+func parseMihomoManualProxyLink(raw string) (map[string]any, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "vless":
+		return parseVLESSProxyLink(u)
+	case "trojan":
+		return parseTrojanProxyLink(u)
+	default:
+		return nil, false
+	}
+}
+
+func parseVLESSProxyLink(u *url.URL) (map[string]any, bool) {
+	server := u.Hostname()
+	port := parseProxyPort(u.Port(), 443)
+	uuid := u.User.Username()
+	if server == "" || port <= 0 || uuid == "" {
+		return nil, false
+	}
+	q := u.Query()
+	name := manualProxyName(u.Fragment, server)
+	network := firstNonEmpty(q.Get("type"), q.Get("network"), "tcp")
+	proxy := map[string]any{
+		"name":    name,
+		"type":    "vless",
+		"server":  server,
+		"port":    port,
+		"uuid":    uuid,
+		"network": network,
+		"udp":     true,
+	}
+	if flow := q.Get("flow"); flow != "" {
+		proxy["flow"] = flow
+	}
+	if security := strings.ToLower(q.Get("security")); security == "tls" || security == "reality" {
+		proxy["tls"] = true
+	}
+	if sni := firstNonEmpty(q.Get("sni"), q.Get("servername")); sni != "" {
+		proxy["servername"] = sni
+	}
+	if fp := firstNonEmpty(q.Get("fp"), q.Get("fingerprint")); fp != "" {
+		proxy["client-fingerprint"] = fp
+	}
+	if insecure := firstNonEmpty(q.Get("allowInsecure"), q.Get("skip-cert-verify")); insecure != "" {
+		proxy["skip-cert-verify"] = insecure == "1" || strings.EqualFold(insecure, "true")
+	}
+	if strings.EqualFold(q.Get("security"), "reality") {
+		reality := map[string]any{}
+		if publicKey := q.Get("pbk"); publicKey != "" {
+			reality["public-key"] = publicKey
+		}
+		if shortID := q.Get("sid"); shortID != "" {
+			reality["short-id"] = shortID
+		}
+		if spiderX := q.Get("spx"); spiderX != "" {
+			reality["spider-x"] = spiderX
+		}
+		if len(reality) > 0 {
+			proxy["reality-opts"] = reality
+		}
+	}
+	applyTransportOptions(proxy, network, q)
+	return proxy, true
+}
+
+func parseTrojanProxyLink(u *url.URL) (map[string]any, bool) {
+	server := u.Hostname()
+	port := parseProxyPort(u.Port(), 443)
+	password := u.User.Username()
+	if server == "" || port <= 0 || password == "" {
+		return nil, false
+	}
+	q := u.Query()
+	network := firstNonEmpty(q.Get("type"), q.Get("network"), "tcp")
+	proxy := map[string]any{
+		"name":     manualProxyName(u.Fragment, server),
+		"type":     "trojan",
+		"server":   server,
+		"port":     port,
+		"password": password,
+		"network":  network,
+		"udp":      true,
+	}
+	if sni := firstNonEmpty(q.Get("sni"), q.Get("servername")); sni != "" {
+		proxy["sni"] = sni
+	}
+	if insecure := firstNonEmpty(q.Get("allowInsecure"), q.Get("skip-cert-verify")); insecure != "" {
+		proxy["skip-cert-verify"] = insecure == "1" || strings.EqualFold(insecure, "true")
+	}
+	applyTransportOptions(proxy, network, q)
+	return proxy, true
+}
+
+func applyTransportOptions(proxy map[string]any, network string, q url.Values) {
+	switch strings.ToLower(network) {
+	case "ws":
+		opts := map[string]any{}
+		if path := q.Get("path"); path != "" {
+			opts["path"] = path
+		}
+		if host := q.Get("host"); host != "" {
+			opts["headers"] = map[string]any{"Host": host}
+		}
+		if len(opts) > 0 {
+			proxy["ws-opts"] = opts
+		}
+	case "grpc":
+		if serviceName := firstNonEmpty(q.Get("serviceName"), q.Get("service_name")); serviceName != "" {
+			proxy["grpc-opts"] = map[string]any{"grpc-service-name": serviceName}
+		}
+	}
+}
+
+func parseProxyPort(raw string, fallback int) int {
+	if raw == "" {
+		return fallback
+	}
+	port, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	return port
+}
+
+func manualProxyName(fragment, fallback string) string {
+	if fragment != "" {
+		if decoded, err := url.QueryUnescape(fragment); err == nil && strings.TrimSpace(decoded) != "" {
+			return strings.TrimSpace(decoded)
+		}
+		return strings.TrimSpace(fragment)
+	}
+	return fallback
+}
+
+func indentYAML(input string, spaces int) string {
+	prefix := strings.Repeat(" ", spaces)
+	lines := strings.Split(strings.TrimRight(input, "\n"), "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		lines[i] = prefix + line
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func safeFilename(s string) string {

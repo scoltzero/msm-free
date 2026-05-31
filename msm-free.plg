@@ -1,21 +1,22 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name "msm-free">
 <!ENTITY author "luochuhan">
-<!ENTITY version "0.1.6">
+<!ENTITY version "0.1.7">
 <!ENTITY githubRepo "scoltzero/msm-free">
-<!ENTITY releaseTag "v0.1.6">
-<!ENTITY packageName "msm-free-0.1.6-x86_64-1">
+<!ENTITY releaseTag "v0.1.7">
+<!ENTITY packageName "msm-free-0.1.7-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "21587bf4de2d7cb9034fabafcc94b075a3ef697d9c2762ed7064c1f953d4b207">
+<!ENTITY packageSHA256 "b4ec2aa1e0dcd16ece4a10e038e0b4532f8b9a60c7cc02577bf95aae59584dfc">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
-### msm-free 0.1.6
-- Fixes setup wizard blank screen after the timezone/system-settings step by returning network interfaces in the data shape expected by the exported MSM WebUI.
-- Adds setup network interface display fields for IP address and speed.
-- Keeps the existing v0.1.5 protections for async setup activation, nft/ip command timeouts, no-store SPA entry, and stale chunk recovery.
+### msm-free 0.1.7
+- Adds Mihomo overview/statistics compatibility fields and fixes the network information card.
+- Improves MSM-style JSON application logs, log parsing, log streaming, and service log display.
+- Creates an MSM-like runtime directory layout including msm.pid, logs/msm.log, database/msm.db, supervisor stubs, and MosDNS/Mihomo compatibility folders.
+- Keeps setup activation, network-interface, and stale asset recovery fixes from prior test builds.
     ]]>
   </CHANGES>
 
@@ -55,8 +56,8 @@ set +e
 if [ -x /etc/rc.d/rc.msm-free ]; then
   /etc/rc.d/rc.msm-free stop
 fi
-removepkg msm-free-0.1.6-x86_64-1
-rm -f /boot/config/plugins/msm-free/msm-free-0.1.6-x86_64-1.txz
+removepkg msm-free-0.1.7-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-0.1.7-x86_64-1.txz
 echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
       ]]>
     </INLINE>

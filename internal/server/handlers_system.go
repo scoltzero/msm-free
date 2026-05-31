@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,35 +19,20 @@ import (
 )
 
 func (a *App) handleMonitorSystem(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"hostname": hostname(), "os": runtime.GOOS, "arch": runtime.GOARCH, "local_ips": localIPs(), "data_dir": a.DataDir,
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.monitorSystemSnapshot()})
 }
 
 func (a *App) handleMonitorHardware(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"cpu":    map[string]any{"model": cpuModel(), "cores": runtime.NumCPU(), "supports_amd64v3": supportsAMD64v3()},
-		"memory": readMemInfo(),
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.monitorHardwareSnapshot()})
 }
 
 func (a *App) handleMonitorResources(w http.ResponseWriter, r *http.Request) {
-	mem := readMemInfo()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"cpu_percent":    sampleCPUPercent(),
-		"memory_total":   mem["MemTotal"],
-		"memory_free":    mem["MemAvailable"],
-		"memory_used":    mem["MemTotal"] - mem["MemAvailable"],
-		"memory_percent": percent(mem["MemTotal"]-mem["MemAvailable"], mem["MemTotal"]),
-		"goroutines":     runtime.NumGoroutine(),
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.monitorResourceSnapshot()})
 }
 
 func (a *App) handleMonitorNetwork(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": localIPs(), "data": map[string]any{
-		"local_ips":  localIPs(),
-		"interfaces": readNetworkCounters(),
-	}})
+	data := a.monitorNetworkSnapshot(time.Now())
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "interfaces": data["local_ips"], "data": data})
 }
 
 func (a *App) handleMonitorHistory(w http.ResponseWriter, r *http.Request) {
@@ -63,18 +49,7 @@ func (a *App) handleMonitorHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMonitorStats(w http.ResponseWriter, r *http.Request) {
-	mem := readMemInfo()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": map[string]any{
-		"services": a.enhancedServiceList(),
-		"resources": map[string]any{
-			"goroutines":     runtime.NumGoroutine(),
-			"cpu_percent":    sampleCPUPercent(),
-			"memory_total":   mem["MemTotal"],
-			"memory_used":    mem["MemTotal"] - mem["MemAvailable"],
-			"memory_percent": percent(mem["MemTotal"]-mem["MemAvailable"], mem["MemTotal"]),
-		},
-		"network": readNetworkCounters(),
-	}})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.monitorPayload()})
 }
 
 func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
@@ -126,24 +101,110 @@ func (a *App) diagnosticsPayload() map[string]any {
 		{"name": "最近错误日志", "key": "recent_errors", "ok": len(recentErrors) == 0, "message": boolMessage(len(recentErrors) == 0, "近期未发现错误日志", fmt.Sprintf("发现 %d 条错误日志", len(recentErrors))), "details": recentErrors},
 	}
 	summary := diagnosticSummary(checks)
+	uiChecks := diagnosticUIChecks(checks)
+	overallStatus := diagnosticOverallStatus(uiChecks)
+	systemInfo := map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "go_version": runtime.Version(), "cpu_cores": runtime.NumCPU(), "pid": os.Getpid(), "uid": os.Getuid(), "euid": os.Geteuid(), "is_root": fmt.Sprintf("%t", os.Geteuid() == 0), "version": a.Version, "data_dir": a.DataDir}
 	data := map[string]any{
-		"checks":        checks,
-		"summary":       summary,
-		"ports":         ports,
-		"services":      serviceRows,
-		"nftables":      nft,
-		"dependencies":  deps,
-		"disk":          disk,
-		"network":       readNetworkCounters(),
-		"recent_errors": recentErrors,
-		"system":        map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "go_version": runtime.Version(), "cpu_cores": runtime.NumCPU(), "pid": os.Getpid(), "is_root": os.Geteuid() == 0, "version": a.Version, "data_dir": a.DataDir},
+		"checks":         uiChecks,
+		"raw_checks":     checks,
+		"summary":        summary,
+		"overall_status": overallStatus,
+		"ports":          ports,
+		"services":       serviceRows,
+		"nftables":       nft,
+		"dependencies":   deps,
+		"disk":           disk,
+		"network":        readNetworkCounters(),
+		"recent_errors":  recentErrors,
+		"system":         systemInfo,
+		"system_info":    systemInfo,
 	}
-	return map[string]any{"success": true, "checks": checks, "summary": summary, "data": data}
+	return map[string]any{"success": true, "checks": uiChecks, "raw_checks": checks, "summary": summary, "overall_status": overallStatus, "system_info": systemInfo, "ports": ports, "recent_errors": recentErrors, "data": data}
 }
 
 func (a *App) handleNetworkInfo(w http.ResponseWriter, r *http.Request) {
 	content, _ := a.readTextFile("configs/network/network.yaml")
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "config": content, "nft": fileExists(a.DataDir + "/configs/network/network.nft")})
+	data := a.networkInfoPayload(content)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data":    data,
+		"config":  content,
+		"nft":     data["nft"],
+	})
+}
+
+func (a *App) networkInfoPayload(content string) map[string]any {
+	var cfg map[string]any
+	_ = yaml.Unmarshal([]byte(content), &cfg)
+	setup, _ := a.latestSetupConfig()
+	iface := firstNonEmpty(stringMapValue(cfg, "interface"), setup.SelectedInterface, defaultSetupInterface())
+	localIP := primaryIPForInterface(iface)
+	if localIP == "" {
+		ips := localIPs()
+		if len(ips) > 0 {
+			localIP = ips[0]
+		}
+	}
+	nftPath := filepath.Join(a.DataDir, "configs/network/network.nft")
+	interfaces := networkInterfaceSummaries()
+	return map[string]any{
+		"config":             content,
+		"nft":                fileExists(nftPath),
+		"nft_enabled":        fileExists(nftPath),
+		"interface":          iface,
+		"selected_interface": iface,
+		"localIP":            localIP,
+		"local_ip":           localIP,
+		"localIPs":           localIPs(),
+		"local_ips":          localIPs(),
+		"interfaces":         interfaces,
+		"ipip":               nil,
+		"ipsb":               nil,
+	}
+}
+
+func primaryIPForInterface(name string) string {
+	if name == "" {
+		return ""
+	}
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return ""
+	}
+	addrs, _ := iface.Addrs()
+	var values []string
+	for _, addr := range addrs {
+		values = append(values, addr.String())
+	}
+	return primaryInterfaceIP(values)
+}
+
+func networkInterfaceSummaries() []map[string]any {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(ifaces))
+	for _, iface := range ifaces {
+		addrs, _ := iface.Addrs()
+		var values []string
+		for _, addr := range addrs {
+			values = append(values, addr.String())
+		}
+		ip := primaryInterfaceIP(values)
+		out = append(out, map[string]any{
+			"name":        iface.Name,
+			"index":       iface.Index,
+			"mac":         iface.HardwareAddr.String(),
+			"flags":       iface.Flags.String(),
+			"is_up":       iface.Flags&net.FlagUp != 0,
+			"is_loopback": iface.Flags&net.FlagLoopback != 0,
+			"addresses":   values,
+			"ip":          ip,
+			"primary_ip":  ip,
+		})
+	}
+	return out
 }
 
 func (a *App) handleNFTInfo(w http.ResponseWriter, r *http.Request) {
@@ -479,6 +540,63 @@ func diagnosticSummary(checks []map[string]any) map[string]any {
 	}
 	total := len(checks)
 	return map[string]any{"total": total, "passed": passed, "failed": failed, "warnings": warnings, "pass_rate": percent(uint64(passed), uint64(total))}
+}
+
+func diagnosticUIChecks(checks []map[string]any) []map[string]any {
+	rows := make([]map[string]any, 0, len(checks))
+	for _, check := range checks {
+		ok := check["ok"] == true
+		status := "error"
+		if ok {
+			status = "success"
+		}
+		key := fmtAny(check["key"])
+		if !ok && (key == "recent_errors" || key == "dependencies" || key == "nftables") {
+			status = "warning"
+		}
+		rows = append(rows, map[string]any{
+			"name":        fmtAny(check["name"]),
+			"key":         key,
+			"ok":          ok,
+			"status":      status,
+			"message":     fmtAny(check["message"]),
+			"details":     diagnosticDetailsText(check["details"]),
+			"raw_details": check["details"],
+		})
+	}
+	return rows
+}
+
+func diagnosticOverallStatus(checks []map[string]any) string {
+	hasWarning := false
+	for _, check := range checks {
+		switch fmtAny(check["status"]) {
+		case "error":
+			return "critical"
+		case "warning":
+			hasWarning = true
+		}
+	}
+	if hasWarning {
+		return "warning"
+	}
+	return "healthy"
+}
+
+func diagnosticDetailsText(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		if b, err := json.MarshalIndent(v, "", "  "); err == nil {
+			return string(b)
+		}
+		return fmtAny(v)
+	}
 }
 
 func boolMessage(ok bool, good, bad string) string {

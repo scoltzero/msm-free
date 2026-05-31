@@ -10,6 +10,9 @@ import (
 
 func (a *App) handleLogs(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
+	if service == "" {
+		service = "msm"
+	}
 	linesLimit := queryInt(r, "lines", 1000)
 	sourceRows := a.serviceLogLinesWithSources(service, linesLimit)
 	rawLines := make([]string, 0, len(sourceRows))
@@ -33,7 +36,7 @@ func (a *App) handleLogs(w http.ResponseWriter, r *http.Request) {
 	paged := slicePage(logs, page, pageSize)
 	lines := make([]string, 0, len(paged))
 	for _, item := range paged {
-		lines = append(lines, firstNonEmpty(fmtAny(item["raw"]), fmtAny(item["message"])))
+		lines = append(lines, firstNonEmpty(fmtAny(item["display"]), fmtAny(item["message"]), fmtAny(item["raw"])))
 	}
 	stats := logStats(logs)
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -53,6 +56,9 @@ func (a *App) handleLogs(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleLogsClear(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
+	if service == "" {
+		service = "msm"
+	}
 	cleared := 0
 	for _, path := range a.logPaths(service) {
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err == nil {
@@ -65,6 +71,9 @@ func (a *App) handleLogsClear(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleLogsDownload(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
+	if service == "" {
+		service = "msm"
+	}
 	paths := a.logPaths(service)
 	files := map[string]string{}
 	for _, path := range paths {
@@ -95,6 +104,9 @@ func (a *App) handleLogsDownload(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleLogsStats(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
+	if service == "" {
+		service = "msm"
+	}
 	size := int64(0)
 	for _, path := range a.logPaths(service) {
 		if info, err := os.Stat(path); err == nil {

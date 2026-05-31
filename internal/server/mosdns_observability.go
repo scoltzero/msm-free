@@ -319,6 +319,7 @@ func mosDNSQueryMeta(entries []map[string]any) map[string]any {
 func mosDNSAuditStats(entries []map[string]any) map[string]any {
 	blocked := 0
 	fakeIP := 0
+	totalDuration := 0.0
 	for _, entry := range entries {
 		rule := strings.ToLower(stringMapValue(entry, "domain_set"))
 		resp := strings.ToUpper(stringMapValue(entry, "response_code"))
@@ -328,15 +329,21 @@ func mosDNSAuditStats(entries []map[string]any) map[string]any {
 		if entryHasFakeIP(entry) {
 			fakeIP++
 		}
+		totalDuration += numericMapValue(entry, "duration_ms")
+	}
+	avgDuration := 0.0
+	if len(entries) > 0 {
+		avgDuration = totalDuration / float64(len(entries))
 	}
 	return map[string]any{
-		"total_queries":   len(entries),
-		"blocked_queries": blocked,
-		"fakeip_queries":  fakeIP,
-		"direct_queries":  len(entries) - fakeIP,
-		"top_clients":     mosDNSRank(entries, "client_ip", 10),
-		"top_domains":     mosDNSRank(entries, "query_name", 10),
-		"top_rules":       mosDNSRank(entries, "domain_set", 10),
+		"total_queries":       len(entries),
+		"blocked_queries":     blocked,
+		"fakeip_queries":      fakeIP,
+		"direct_queries":      len(entries) - fakeIP,
+		"average_duration_ms": avgDuration,
+		"top_clients":         mosDNSRank(entries, "client_ip", 10),
+		"top_domains":         mosDNSRank(entries, "query_name", 10),
+		"top_rules":           mosDNSRank(entries, "domain_set", 10),
 	}
 }
 
@@ -368,7 +375,7 @@ func mosDNSCacheSummary(entries []map[string]any) map[string]any {
 	if len(entries) > 0 {
 		hitRate = float64(cached) * 100 / float64(len(entries))
 	}
-	return map[string]any{"entries": cached, "hit_rate": hitRate}
+	return map[string]any{"entries": cached, "size": cached, "hit_rate": hitRate, "query_total": len(entries), "hit_total": cached}
 }
 
 func mosDNSCacheRows(entries []map[string]any) []map[string]any {
@@ -416,16 +423,42 @@ func mosDNSUpstreamStats(entries []map[string]any) map[string]any {
 	covered := 0
 	for _, group := range groups {
 		count := 0
+		duration := 0.0
 		for _, entry := range entries {
 			if group.Want(entry) {
 				count++
+				duration += numericMapValue(entry, "duration_ms")
 			}
 		}
 		covered += count
-		upstreams = append(upstreams, map[string]any{"name": group.Name, "count": count, "ok": true})
+		upstreams = append(upstreams, mosDNSUpstreamRow(group.Name, count, duration, len(entries)))
 	}
-	upstreams = append(upstreams, map[string]any{"name": "other", "count": maxInt(0, len(entries)-covered), "ok": true})
+	otherCount := maxInt(0, len(entries)-covered)
+	upstreams = append(upstreams, mosDNSUpstreamRow("other", otherCount, 0, len(entries)))
 	return map[string]any{"upstreams": upstreams, "total": len(entries), "response_codes": mosDNSRank(entries, "response_code", 10)}
+}
+
+func mosDNSUpstreamRow(name string, count int, duration float64, total int) map[string]any {
+	avgLatency := 0.0
+	if count > 0 {
+		avgLatency = duration / float64(count)
+	}
+	rate := 0.0
+	if total > 0 {
+		rate = float64(count) * 100 / float64(total)
+	}
+	return map[string]any{
+		"name":           name,
+		"tag":            name,
+		"addr":           name,
+		"protocol":       "mosdns",
+		"query_total":    count,
+		"count":          count,
+		"avg_latency_ms": avgLatency,
+		"winner_rate":    rate,
+		"error_rate":     0.0,
+		"ok":             true,
+	}
 }
 
 func (a *App) mosDNSRuleSets() []map[string]any {

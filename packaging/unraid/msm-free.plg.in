@@ -13,9 +13,10 @@
   <CHANGES>
     <![CDATA[
 ### msm-free __PLUGIN_VERSION__
-- Fixes setup wizard blank screen after the timezone/system-settings step by returning network interfaces in the data shape expected by the exported MSM WebUI.
-- Adds setup network interface display fields for IP address and speed.
-- Keeps the existing v0.1.5 protections for async setup activation, nft/ip command timeouts, no-store SPA entry, and stale chunk recovery.
+- Adds Mihomo overview/statistics compatibility fields and fixes the network information card.
+- Improves MSM-style JSON application logs, log parsing, log streaming, and service log display.
+- Creates an MSM-like runtime directory layout including msm.pid, logs/msm.log, database/msm.db, supervisor stubs, and MosDNS/Mihomo compatibility folders.
+- Keeps setup activation, network-interface, and stale asset recovery fixes from prior test builds.
     ]]>
   </CHANGES>
 

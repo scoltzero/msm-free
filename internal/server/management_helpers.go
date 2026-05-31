@@ -286,7 +286,7 @@ func (a *App) logPaths(service string) []string {
 		service = "mihomo"
 	}
 	if service == "msm" || service == "msm-free" || service == "app" {
-		names := []string{"msm-free.log", "msm.log", "app.log"}
+		names := []string{"msm.log", "msm-free.log", "app.log"}
 		var paths []string
 		for _, name := range names {
 			path := filepath.Join(a.DataDir, "logs", name)
@@ -334,10 +334,46 @@ func (a *App) serviceLogLinesWithSources(service string, n int) []map[string]str
 			rows = append(rows, map[string]string{"line": line, "source": source, "path": path})
 		}
 	}
+	if len(rows) == 0 {
+		rows = append(rows, journalLogRows(service, n)...)
+	}
 	if len(rows) > n && n > 0 {
 		rows = rows[len(rows)-n:]
 	}
 	return rows
+}
+
+func journalLogRows(service string, n int) []map[string]string {
+	unit := journalUnitForService(service)
+	if unit == "" {
+		return nil
+	}
+	if n <= 0 {
+		n = 200
+	}
+	out, err := combinedOutputWithTimeout(context.Background(), 3*time.Second, "journalctl", "-u", unit, "-n", fmtAny(n), "--no-pager", "--output=short-iso")
+	if err != nil || len(out) == 0 {
+		return nil
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	rows := make([]map[string]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "-- No entries --") {
+			continue
+		}
+		rows = append(rows, map[string]string{"line": line, "source": unit, "path": "journalctl:" + unit})
+	}
+	return rows
+}
+
+func journalUnitForService(service string) string {
+	switch normalizeServiceName(service) {
+	case "msm", "msm-free", "app", "":
+		return "msm-free.service"
+	default:
+		return ""
+	}
 }
 
 func filterStructuredLogs(logs []map[string]any, r *http.Request) []map[string]any {

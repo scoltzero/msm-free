@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -36,6 +37,10 @@ type App struct {
 	Secret  []byte
 
 	Services *ServiceManager
+
+	monitorMu          sync.Mutex
+	monitorNetworkLast monitorNetworkSample
+	appLogMu           sync.Mutex
 }
 
 type APIError struct {
@@ -53,7 +58,7 @@ func New(opts Options) (*App, error) {
 	if err := os.MkdirAll(opts.DataDir, 0755); err != nil {
 		return nil, err
 	}
-	dbPath := filepath.Join(opts.DataDir, "database", "msm-free.db")
+	dbPath := databasePath(opts.DataDir)
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, err
 	}
@@ -84,17 +89,26 @@ func (a *App) Close() {
 
 func (a *App) EnsureBaseLayout() error {
 	dirs := []string{
+		"configs/logs",
 		"configs/mosdns/sub_config",
 		"configs/mosdns/rules",
 		"configs/mosdns/webinfo",
-		"configs/logs",
+		"configs/mosdns/cache",
+		"configs/mosdns/gen",
+		"configs/mosdns/genblank",
+		"configs/mosdns/rule",
+		"configs/mosdns/srs",
+		"configs/mosdns/unpack",
 		"configs/mihomo/rules",
 		"configs/mihomo/proxy_providers",
 		"configs/mihomo/ui",
 		"configs/network",
+		"configs/network/history",
 		"configs/singbox",
+		"configs/supervisor/services",
 		"data/binaries/mosdns",
 		"data/binaries/mihomo",
+		"data/binaries/supervisord",
 		"data/binaries/zashboard",
 		"logs/supervisor",
 		"database",
@@ -108,7 +122,7 @@ func (a *App) EnsureBaseLayout() error {
 	if err := a.ensureDefaultConfigs(); err != nil {
 		return err
 	}
-	return nil
+	return a.ensureCompatibilityLayout()
 }
 
 func (a *App) Router() http.Handler {
@@ -119,37 +133,40 @@ func (a *App) Router() http.Handler {
 
 func (a *App) withCommonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w}
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				log.Printf("panic serving %s %s: %v\n%s", r.Method, r.URL.Path, recovered, debug.Stack())
 				if strings.HasPrefix(r.URL.Path, apiPrefix) {
-					writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
-					return
+					writeError(rec, http.StatusInternalServerError, "internal_error", "internal server error")
+				} else {
+					http.Error(rec, "internal server error", http.StatusInternalServerError)
 				}
-				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
+			a.logHTTPRequest(r, rec.statusCode(), time.Since(start))
 		}()
-		w.Header().Set("Vary", "Origin")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		rec.Header().Set("Vary", "Origin")
+		rec.Header().Set("Access-Control-Allow-Origin", "*")
+		rec.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		rec.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+			rec.WriteHeader(http.StatusNoContent)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, apiPrefix) && !a.publicAPI(r.URL.Path) {
 			user, err := a.authenticateRequest(r)
 			if err != nil {
-				writeError(w, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
+				writeError(rec, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
 				return
 			}
 			if !a.authorizeRequest(user, r) {
-				writeError(w, http.StatusForbidden, "forbidden", "当前角色没有执行该操作的权限")
+				writeError(rec, http.StatusForbidden, "forbidden", "当前角色没有执行该操作的权限")
 				return
 			}
 			r = r.WithContext(context.WithValue(r.Context(), userContextKey{}, user))
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(rec, r)
 	})
 }
 
@@ -265,6 +282,7 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/history/compare", a.handleHistoryCompare)
 
 	mux.HandleFunc("GET /api/v1/logs/{service}", a.handleLogs)
+	mux.HandleFunc("GET /api/v1/logs", a.handleLogs)
 	mux.HandleFunc("DELETE /api/v1/logs/{service}", a.handleLogsClear)
 	mux.HandleFunc("GET /api/v1/logs/{service}/download", a.handleLogsDownload)
 	mux.HandleFunc("GET /api/v1/logs/{service}/stats", a.handleLogsStats)

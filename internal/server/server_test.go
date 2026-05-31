@@ -22,6 +22,7 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 		"webPort":              "17777",
 		"selected_interface":   "eth0",
 		"subscription_urls":    "机场A|https://example.com/a.yaml\nhttps://example.com/b.yaml",
+		"mihomo_proxies":       "vless://c20c7f96-e1a1-4203-bffa-888ef04959fd@example.com:443?encryption=none&security=reality&type=tcp&sni=gateway.icloud.com&fp=chrome&pbk=abc&sid=123&flow=xtls-rprx-vision#USxDMITan4pro-vless_reality_vision",
 		"enableIPv6":           true,
 		"nft_proxy_policy":     "direct_default",
 		"fakeIPRangeV4":        "28.0.0.0/8",
@@ -62,9 +63,19 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(cfg)
-	for _, want := range []string{"proxy-providers:", "https://example.com/a.yaml", "机场A", "机场1", "tproxy-port: 7896", "listen: 0.0.0.0:6666", "fake-ip-range: 28.0.0.1/8"} {
+	for _, want := range []string{"proxy-providers:", "msm_manual:", "https://example.com/a.yaml", "机场A", "机场1", "tproxy-port: 7896", "listen: 0.0.0.0:6666", "fake-ip-range: 28.0.0.1/8", "UrlTest: &UrlTest", "proxies: [DIRECT], include-all: true, include-all-proxies: true, include-all-providers: true", "name: 机场节点, type: select, proxies: [DIRECT], include-all: true, include-all-proxies: true, include-all-providers: true"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("mihomo config missing %q:\n%s", want, text)
+		}
+	}
+	manualProvider, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/proxy_providers/msm_manual.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manualText := string(manualProvider)
+	for _, want := range []string{"proxies:", "type: vless", "server: example.com", "port: 443", "uuid: c20c7f96-e1a1-4203-bffa-888ef04959fd", "reality-opts:", "public-key: abc", "short-id: \"123\"", "flow: xtls-rprx-vision"} {
+		if !strings.Contains(manualText, want) {
+			t.Fatalf("manual provider missing %q:\n%s", want, manualText)
 		}
 	}
 	mosdnsConfig, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mosdns/config.yaml"))
@@ -81,7 +92,7 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 		"configs/mosdns/sub_config/forward_1.yaml":        {"udp://127.0.0.1:6666", `listen: ":2222"`},
 		"configs/mosdns/sub_config/forward_nocn.yaml":     {`listen: ":3333"`},
 		"configs/mosdns/sub_config/forward_nocn_ecs.yaml": {`listen: ":4444"`},
-		"configs/mosdns/sub_config/for_singbox.yaml":      {`listen: ":7777"`, `listen: ":8888"`},
+		"configs/mosdns/sub_config/for_singbox.yaml":      {`listen: ":7778"`, `listen: ":8888"`},
 		"configs/mosdns/sub_config/forward_2.yaml":        {"127.0.0.1:5656", "entry: sequence_6666"},
 	}
 	for rel, wants := range mssbFiles {
@@ -100,8 +111,99 @@ func TestSetupInitializeLoginAndGeneratedConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(nft), `iifname { "lo", "eth0" }`) || !strings.Contains(string(nft), "tproxy to :7896") || !strings.Contains(string(nft), "redirect to :7877") || !strings.Contains(string(nft), "28.0.0.0/8") {
+	if !strings.Contains(string(nft), `iifname { "lo", "eth0" }`) || !strings.Contains(string(nft), "tproxy to :7896") || !strings.Contains(string(nft), "redirect to :7877") || !strings.Contains(string(nft), "28.0.0.0/8") || !strings.Contains(string(nft), "set dns_ipv4 {\n    type ipv4_addr\n    flags interval") {
 		t.Fatalf("nft template not rendered correctly:\n%s", nft)
+	}
+}
+
+func TestSupportsAMD64v3AcceptsABMAsLZCNTCompat(t *testing.T) {
+	cpuInfo := `processor : 0
+vendor_id : GenuineIntel
+model name : 12th Gen Intel(R) Core(TM) i9-12900HK
+flags : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault invpcid_single pti ssbd ibrs ibpb stibp fsgsbase bmi1 avx2 bmi2 invpcid rdseed adx clflushopt xsaveopt arat umip
+`
+	if !supportsAMD64v3Flags(cpuInfo) {
+		t.Fatal("expected Intel/KVM flags with abm to satisfy AMD64 v3 lzcnt requirement")
+	}
+}
+
+func TestSupportsAMD64v3RequiresLZCNTOrABM(t *testing.T) {
+	cpuInfo := `flags : avx avx2 bmi1 bmi2 fma movbe xsave`
+	if supportsAMD64v3Flags(cpuInfo) {
+		t.Fatal("expected AMD64 v3 detection to fail without lzcnt or abm")
+	}
+}
+
+func TestSetupDefaultsMatchWebUIFakeIPRanges(t *testing.T) {
+	var cfg SetupConfig
+	cfg.defaults()
+	if cfg.FakeIPRangeV4 != "28.0.0.0/8" {
+		t.Fatalf("FakeIPRangeV4 default mismatch, got %q", cfg.FakeIPRangeV4)
+	}
+	if cfg.FakeIPRangeV6 != "f2b0::/18" {
+		t.Fatalf("FakeIPRangeV6 default mismatch, got %q", cfg.FakeIPRangeV6)
+	}
+	if got := normalizeMihomoFakeIPv4Range(cfg.FakeIPRangeV4); got != "28.0.0.1/8" {
+		t.Fatalf("mihomo fake-ip range normalization mismatch, got %q", got)
+	}
+	if got := fakeIPv4RouteCIDR(cfg.FakeIPRangeV4); got != "28.0.0.0/8" {
+		t.Fatalf("IPv4 route CIDR mismatch, got %q", got)
+	}
+	if got := fakeIPv6RouteCIDR(""); got != "f2b0::/18" {
+		t.Fatalf("IPv6 route CIDR default mismatch, got %q", got)
+	}
+}
+
+func TestEnsureSetupProviderArtifactsBackfillsManualProvider(t *testing.T) {
+	app := newTestApp(t)
+	cfg := SetupConfig{
+		SelectedInterface: "eth0",
+		SubscriptionURLs:  "imm|https://example.com/imm.yaml",
+		MihomoProxies:     "trojan://pass@example.org:443?sni=example.org#manual-node",
+		ProxyCore:         "mihomo",
+		MosDNSEnabled:     true,
+	}
+	cfg.defaults()
+	if err := app.writeTextFile("configs/mihomo/config.yaml", "mode: rule\nproxy-providers: {}\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(app.DataDir, "configs/mihomo/proxy_providers/msm_manual.yaml")); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if err := app.ensureSetupProviderArtifacts(cfg); err != nil {
+		t.Fatal(err)
+	}
+	manualProvider, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/proxy_providers/msm_manual.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manualProvider), "name: manual-node") || !strings.Contains(string(manualProvider), "type: trojan") {
+		t.Fatalf("manual provider not backfilled:\n%s", string(manualProvider))
+	}
+	config, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	configText := string(config)
+	for _, want := range []string{"proxy-providers:", "msm_manual:", "imm", "https://example.com/imm.yaml", "./proxy_providers/imm.yaml"} {
+		if !strings.Contains(configText, want) {
+			t.Fatalf("mihomo provider section missing %q:\n%s", want, configText)
+		}
+	}
+}
+
+func TestNewLogEventLinesOnlyReturnsFreshNonDuplicateRows(t *testing.T) {
+	previous := []string{"a", "b", "c"}
+	if got := newLogEventLines(previous, []string{"a", "b", "c"}); len(got) != 0 {
+		t.Fatalf("unchanged logs should not emit rows, got %#v", got)
+	}
+	got := newLogEventLines(previous, []string{"b", "c", "d"})
+	if len(got) != 1 || got[0] != "d" {
+		t.Fatalf("rotated tail should emit only new row, got %#v", got)
+	}
+	got = newLogEventLines(previous, []string{"x", "y"})
+	if len(got) != 2 || got[0] != "x" || got[1] != "y" {
+		t.Fatalf("truncated/replaced log should emit current rows, got %#v", got)
 	}
 }
 
@@ -157,6 +259,44 @@ func TestSetupNetworkInterfacesResponseMatchesExportedWebUI(t *testing.T) {
 		if !ok || item["name"] == nil || item["ip"] == nil || item["speed"] == nil {
 			t.Fatalf("interface rows should include name/ip/speed for setup UI: %#v", data[0])
 		}
+	}
+}
+
+func TestCompatibilityLayoutMatchesMSMTreeShape(t *testing.T) {
+	app := newTestApp(t)
+	for _, rel := range []string{
+		"database/msm.db",
+		"logs/msm.log",
+		"logs/supervisor/supervisord.log",
+		"configs/logs/mosdns.log",
+		"configs/supervisor/supervisord.conf",
+		"configs/supervisor/services/mihomo.ini",
+		"configs/supervisor/services/mosdns.ini",
+		"configs/network/history/.keep",
+		"configs/mosdns/cache/.keep",
+		"configs/mosdns/unpack/.keep",
+		"configs/mihomo/config.yaml.backup",
+	} {
+		if _, err := os.Stat(filepath.Join(app.DataDir, rel)); err != nil {
+			t.Fatalf("expected MSM-compatible layout path %s: %v", rel, err)
+		}
+	}
+}
+
+func TestStructuredMSMJSONLogsFormatLikeOriginal(t *testing.T) {
+	app := newTestApp(t)
+	app.LogInfo("app/app.go:114", "MSM 后端服务启动中...", nil)
+	app.LogInfo("app/app.go:945", "gin", map[string]any{"message": `[GIN] 2026/05/31 - 12:58:40 | 200 | 1ms | 192.168.10.223 | GET      "/api/v1/logs/msm/stats"`})
+	logs := requestJSON(t, app, http.MethodGet, "/api/v1/logs/msm?lines=10", tokenForRole(t, app, "admin"), nil)
+	if logs.Code != http.StatusOK {
+		t.Fatalf("logs status=%d body=%s", logs.Code, logs.Body.String())
+	}
+	body := logs.Body.String()
+	if !strings.Contains(body, "[app/app.go:114] MSM 后端服务启动中...") || !strings.Contains(body, "[app/app.go:945] gin: [GIN]") {
+		t.Fatalf("structured MSM JSON logs were not formatted for WebUI:\n%s", body)
+	}
+	if !strings.Contains(body, `"level":"info"`) || !strings.Contains(body, `"raw":"{`) {
+		t.Fatalf("structured MSM JSON logs should preserve level and raw JSON:\n%s", body)
 	}
 }
 
@@ -305,7 +445,7 @@ func TestMosDNS9099TakesPriorityForQueryLogsAndOverview(t *testing.T) {
 		t.Fatalf("query logs should prefer 9099: status=%d body=%s", logs.Code, logs.Body.String())
 	}
 	overview := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/overview", token, nil)
-	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"source":"mosdns_9099"`) || !strings.Contains(overview.Body.String(), `"query_count":77`) {
+	if overview.Code != http.StatusOK || !strings.Contains(overview.Body.String(), `"source":"mosdns_9099"`) || !strings.Contains(overview.Body.String(), `"query_count":77`) || !strings.Contains(overview.Body.String(), `"upstream_stats":[`) || !strings.Contains(overview.Body.String(), `"detailed_cache"`) || !strings.Contains(overview.Body.String(), `"audit_stats"`) {
 		t.Fatalf("overview should include 9099 stats: status=%d body=%s", overview.Code, overview.Body.String())
 	}
 }
@@ -439,9 +579,31 @@ func TestMihomoControllerBackedOverviewAndTraffic(t *testing.T) {
 	if traffic.Code != http.StatusOK || !strings.Contains(traffic.Body.String(), `"download":4096`) || !strings.Contains(traffic.Body.String(), `"upload":1024`) {
 		t.Fatalf("mihomo traffic mismatch: status=%d body=%s", traffic.Code, traffic.Body.String())
 	}
+	stats := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/stats", token, nil)
+	if stats.Code != http.StatusOK || !strings.Contains(stats.Body.String(), `"downloadSpeed":4096`) || !strings.Contains(stats.Body.String(), `"uploadSpeed":1024`) || !strings.Contains(stats.Body.String(), `"downloadTotal":8192`) || !strings.Contains(stats.Body.String(), `"activeConnections":2`) {
+		t.Fatalf("mihomo stats should expose overview-compatible counters: status=%d body=%s", stats.Code, stats.Body.String())
+	}
 	proxy := requestJSON(t, app, http.MethodGet, "/api/v1/proxy/overview", token, nil)
 	if proxy.Code != http.StatusOK || !strings.Contains(proxy.Body.String(), `"core":"mihomo"`) || !strings.Contains(proxy.Body.String(), `"mode":"rule"`) {
 		t.Fatalf("proxy overview mismatch: status=%d body=%s", proxy.Code, proxy.Body.String())
+	}
+}
+
+func TestNetworkInfoProvidesOverviewLocalIPShape(t *testing.T) {
+	app := newTestApp(t)
+	token := tokenForRole(t, app, "admin")
+	if err := os.MkdirAll(filepath.Join(app.DataDir, "configs/network"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app.DataDir, "configs/network/network.yaml"), []byte("interface: lo\nmode: tproxy\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := requestJSON(t, app, http.MethodGet, "/api/v1/network/info", token, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("network info status=%d body=%s", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), `"data"`) || !strings.Contains(res.Body.String(), `"localIP"`) || !strings.Contains(res.Body.String(), `"interfaces"`) || !strings.Contains(res.Body.String(), `"selected_interface":"lo"`) {
+		t.Fatalf("network info should provide frontend overview shape: %s", res.Body.String())
 	}
 }
 
@@ -461,7 +623,7 @@ func TestMihomoConnectionsProxiesRulesAndClose(t *testing.T) {
 		t.Fatalf("connection close failed: status=%d body=%s", closeAll.Code, closeAll.Body.String())
 	}
 	proxies := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/proxies?search=proxy", token, nil)
-	if proxies.Code != http.StatusOK || !strings.Contains(proxies.Body.String(), `"name":"Proxy"`) || !strings.Contains(proxies.Body.String(), `"name":"proxy-a"`) {
+	if proxies.Code != http.StatusOK || !strings.Contains(proxies.Body.String(), `"name":"Proxy"`) || !strings.Contains(proxies.Body.String(), `"name":"proxy-a"`) || !strings.Contains(proxies.Body.String(), `"proxy_list"`) || !strings.Contains(proxies.Body.String(), `"Proxy":{`) {
 		t.Fatalf("proxy list mismatch: status=%d body=%s", proxies.Code, proxies.Body.String())
 	}
 	selectProxy := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/proxies/Proxy", token, map[string]string{"name": "proxy-a"})
@@ -597,6 +759,29 @@ func TestConfigCompareBackupAndDiagnostics(t *testing.T) {
 	if diag.Code != http.StatusOK || !strings.Contains(diag.Body.String(), "配置目录") || !strings.Contains(diag.Body.String(), "端口占用") {
 		t.Fatalf("diagnostics incomplete: status=%d body=%s", diag.Code, diag.Body.String())
 	}
+	var diagBody map[string]any
+	if err := json.Unmarshal(diag.Body.Bytes(), &diagBody); err != nil {
+		t.Fatal(err)
+	}
+	if diagBody["overall_status"] == "" || diagBody["system_info"] == nil {
+		t.Fatalf("diagnostics should expose direct system page fields: %#v", diagBody)
+	}
+	checks, ok := diagBody["checks"].([]any)
+	if !ok || len(checks) == 0 {
+		t.Fatalf("diagnostics checks should be a non-empty array: %#v", diagBody["checks"])
+	}
+	first, ok := checks[0].(map[string]any)
+	if !ok {
+		t.Fatalf("diagnostics check row should be an object: %#v", checks[0])
+	}
+	if _, ok := first["details"].(string); !ok {
+		t.Fatalf("diagnostics details must be a string for React rendering: %#v", first["details"])
+	}
+	switch first["status"] {
+	case "success", "warning", "error":
+	default:
+		t.Fatalf("diagnostics status should use WebUI enum, got %#v", first["status"])
+	}
 }
 
 func TestBasicManagementServiceLogsAndConfigAPIs(t *testing.T) {
@@ -630,6 +815,17 @@ func TestBasicManagementServiceLogsAndConfigAPIs(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(app.DataDir, "logs/mihomo.err.log")); len(b) != 0 {
 		t.Fatalf("stderr log should be cleared, got %q", string(b))
+	}
+	if err := os.WriteFile(filepath.Join(app.DataDir, "logs/msm.log"), []byte("[info] msm web request\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defaultLogs := requestJSON(t, app, http.MethodGet, "/api/v1/logs?lines=20", token, nil)
+	if defaultLogs.Code != http.StatusOK || !strings.Contains(defaultLogs.Body.String(), `"service":"msm"`) || !strings.Contains(defaultLogs.Body.String(), "msm web request") {
+		t.Fatalf("default logs route should return msm logs: status=%d body=%s", defaultLogs.Code, defaultLogs.Body.String())
+	}
+	stats := requestJSON(t, app, http.MethodGet, "/api/v1/logs/msm/stats", token, nil)
+	if stats.Code != http.StatusOK || !strings.Contains(stats.Body.String(), `"total":`) || !strings.Contains(stats.Body.String(), `"service":"msm"`) {
+		t.Fatalf("msm log stats should include default app log lines: status=%d body=%s", stats.Code, stats.Body.String())
 	}
 	put := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", token, map[string]any{"path": "configs/mihomo/config.yaml", "content": "mode: rule\n", "comment": "test save"})
 	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), "history_id") || !strings.Contains(put.Body.String(), "restart_required") {
@@ -684,9 +880,46 @@ func TestBasicManagementUsersTokensSettingsAndDiagnostics(t *testing.T) {
 	if diagDownload.Code != http.StatusOK || !strings.Contains(diagDownload.Header().Get("Content-Disposition"), "diagnostics") {
 		t.Fatalf("diagnostics download mismatch: status=%d headers=%v", diagDownload.Code, diagDownload.Header())
 	}
-	setup := requestJSON(t, app, http.MethodPut, "/api/v1/setup/config", token, map[string]any{"username": "root", "selected_interface": "eth0", "subscription_urls": "https://example.com/sub.yaml", "proxyCore": "mihomo", "mosdnsEnabled": true})
+	setup := requestJSON(t, app, http.MethodPut, "/api/v1/setup/config", token, map[string]any{
+		"username":           "root",
+		"selected_interface": "eth0",
+		"subscription_urls":  "imm|https://example.com/sub.yaml",
+		"proxy_core":         "mihomo",
+		"mos_dns_enabled":    true,
+		"auto_set_dns":       false,
+		"enable_ipv6":        false,
+		"mihomo_proxies":     "trojan://pass@example.org:443?sni=example.org#manual-node",
+	})
 	if setup.Code != http.StatusOK || !strings.Contains(setup.Body.String(), "network_reapply_required") || !strings.Contains(setup.Body.String(), "download_component") {
 		t.Fatalf("setup config compatibility response mismatch: status=%d body=%s", setup.Code, setup.Body.String())
+	}
+	if !strings.Contains(setup.Body.String(), `"proxy_core":"mihomo"`) || !strings.Contains(setup.Body.String(), `"enable_ipv6":false`) {
+		t.Fatalf("setup config response should expose snake_case WebUI fields: status=%d body=%s", setup.Code, setup.Body.String())
+	}
+	setupGet := requestJSON(t, app, http.MethodGet, "/api/v1/setup/config", token, nil)
+	if setupGet.Code != http.StatusOK {
+		t.Fatalf("setup config get failed: status=%d body=%s", setupGet.Code, setupGet.Body.String())
+	}
+	var setupBody map[string]any
+	if err := json.Unmarshal(setupGet.Body.Bytes(), &setupBody); err != nil {
+		t.Fatal(err)
+	}
+	data, ok := setupBody["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("setup config get should expose data object: %#v", setupBody["data"])
+	}
+	if data["selected_interface"] != "eth0" || data["proxy_core"] != "mihomo" || data["enable_ipv6"] != false {
+		t.Fatalf("setup config data mismatch: %#v", data)
+	}
+	if !strings.Contains(fmtAny(data["subscription_urls"]), "imm|https://example.com/sub.yaml") || !strings.Contains(fmtAny(data["mihomo_proxies"]), "manual-node") {
+		t.Fatalf("setup config should preserve subscription and manual node text: %#v", data)
+	}
+	manualProvider, err := os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/proxy_providers/msm_manual.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manualProvider), "name: manual-node") || !strings.Contains(string(manualProvider), "type: trojan") {
+		t.Fatalf("manual proxy provider was not generated from settings setup config:\n%s", string(manualProvider))
 	}
 }
 
