@@ -84,12 +84,21 @@ func (a *App) handleSetupGetConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		cfg.defaults()
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "config": cfg, "is_initialized": initialized})
+	cfg.defaults()
+	if cfg.SelectedInterface == "" {
+		cfg.SelectedInterface = defaultSetupInterface()
+	}
+	payload := setupConfigPayload(cfg, initialized)
+	response := map[string]any{"success": true, "config": payload, "data": payload, "is_initialized": initialized}
+	for key, value := range payload {
+		response[key] = value
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (a *App) handleSetupPutConfig(w http.ResponseWriter, r *http.Request) {
 	var cfg SetupConfig
-	if err := decodeJSON(r, &cfg); err != nil {
+	if err := decodeSetupConfigRequest(r, &cfg); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
@@ -126,19 +135,25 @@ func (a *App) handleSetupPutConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	networkReapply := shouldRestoreNFT(cfg)
-	writeJSON(w, http.StatusOK, map[string]any{
+	payload := setupConfigPayload(cfg, true)
+	response := map[string]any{
 		"success":                  true,
-		"config":                   cfg,
+		"config":                   payload,
+		"data":                     payload,
 		"restarted_services":       restarted,
 		"needs_download":           len(missing) > 0,
 		"download_component":       missing,
 		"network_reapply_required": networkReapply,
-	})
+	}
+	for key, value := range payload {
+		response[key] = value
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (a *App) handleSetupInitialize(w http.ResponseWriter, r *http.Request) {
 	var cfg SetupConfig
-	if err := decodeJSON(r, &cfg); err != nil {
+	if err := decodeSetupConfigRequest(r, &cfg); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
@@ -172,22 +187,153 @@ func (a *App) handleSetupInitialize(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "message": "initialized"})
 }
 
-func (a *App) handleSetupActivate(w http.ResponseWriter, r *http.Request) {
-	report := RuntimeRestoreReport{Initialized: a.IsInitialized()}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		restored := a.RestoreConfiguredRuntime(ctx)
-		if len(restored.Errors) > 0 {
-			log.Printf("setup activation completed with errors: %s", strings.Join(restored.Errors, "; "))
+func decodeSetupConfigRequest(r *http.Request, cfg *SetupConfig) error {
+	var raw map[string]any
+	if err := decodeJSON(r, &raw); err != nil {
+		return err
+	}
+	cfg.Username = setupString(raw, "username")
+	cfg.Password = setupString(raw, "password")
+	cfg.ConfirmPassword = setupString(raw, "confirm_password", "confirmPassword")
+	cfg.Email = setupString(raw, "email")
+	cfg.Timezone = setupString(raw, "timezone")
+	cfg.WebPort = setupString(raw, "web_port", "webPort")
+	cfg.AMD64v3Enabled = setupBool(raw, false, "amd64v3_enabled", "amd64v3Enabled", "amd64v3")
+	cfg.SelectedInterface = setupString(raw, "selected_interface", "selectedInterface")
+	cfg.MihomoCoreType = setupString(raw, "mihomo_core_type", "mihomoCoreType")
+	cfg.AutoSetDNS = setupBool(raw, true, "auto_set_dns", "autoSetDNS")
+	cfg.DNSOn = setupString(raw, "dns_on", "dnsOn")
+	cfg.DNSOff = setupString(raw, "dns_off", "dnsOff")
+	cfg.EnableIPv6 = setupBool(raw, true, "enable_ipv6", "enableIPv6")
+	cfg.FakeIPRangeV4 = setupString(raw, "fake_ip_range_v4", "fakeIPRangeV4")
+	cfg.FakeIPRangeV6 = setupString(raw, "fake_ip_range_v6", "fakeIPRangeV6")
+	cfg.LinuxProxyMode = setupString(raw, "linux_proxy_mode", "linuxProxyMode")
+	cfg.NFTProxyPolicy = setupString(raw, "nft_proxy_policy", "nftProxyPolicy")
+	cfg.ProxyCore = setupString(raw, "proxy_core", "proxyCore")
+	cfg.MosDNSEnabled = setupBool(raw, true, "mos_dns_enabled", "mosdnsEnabled", "mosDNSEnabled")
+	cfg.SubscriptionURLs = setupString(raw, "subscription_urls", "subscriptionURLs")
+	cfg.MihomoProxies = setupString(raw, "mihomo_proxies", "mihomoProxies")
+	cfg.GitHubProxyEnabled = setupBool(raw, false, "github_proxy_enabled", "githubProxyEnabled")
+	cfg.GitHubHTTPSProxy = setupString(raw, "github_https_proxy", "githubHTTPSProxy")
+	cfg.GitHubHTTPProxy = setupString(raw, "github_http_proxy", "githubHTTPProxy")
+	cfg.GitHubSocks5Proxy = setupString(raw, "github_socks5_proxy", "githubSocks5Proxy")
+	cfg.GitHubAcceleratorEnabled = setupBool(raw, false, "github_accelerator_enabled", "githubAcceleratorEnabled")
+	cfg.GitHubAcceleratorURL = setupString(raw, "github_accelerator_url", "githubAcceleratorURL")
+	return nil
+}
+
+func setupConfigPayload(cfg SetupConfig, initialized bool) map[string]any {
+	return map[string]any{
+		"username":                   cfg.Username,
+		"email":                      cfg.Email,
+		"timezone":                   cfg.Timezone,
+		"web_port":                   cfg.WebPort,
+		"webPort":                    cfg.WebPort,
+		"amd64v3_enabled":            cfg.AMD64v3Enabled,
+		"amd64v3Enabled":             cfg.AMD64v3Enabled,
+		"selected_interface":         cfg.SelectedInterface,
+		"selectedInterface":          cfg.SelectedInterface,
+		"singbox_core_type":          "",
+		"mihomo_core_type":           cfg.MihomoCoreType,
+		"mihomoCoreType":             cfg.MihomoCoreType,
+		"auto_set_dns":               cfg.AutoSetDNS,
+		"autoSetDNS":                 cfg.AutoSetDNS,
+		"dns_on":                     cfg.DNSOn,
+		"dnsOn":                      cfg.DNSOn,
+		"dns_off":                    cfg.DNSOff,
+		"dnsOff":                     cfg.DNSOff,
+		"enable_ipv6":                cfg.EnableIPv6,
+		"enableIPv6":                 cfg.EnableIPv6,
+		"fake_ip_range_v4":           cfg.FakeIPRangeV4,
+		"fakeIPRangeV4":              cfg.FakeIPRangeV4,
+		"fake_ip_range_v6":           cfg.FakeIPRangeV6,
+		"fakeIPRangeV6":              cfg.FakeIPRangeV6,
+		"linux_proxy_mode":           cfg.LinuxProxyMode,
+		"nft_proxy_policy":           cfg.NFTProxyPolicy,
+		"proxy_core":                 cfg.ProxyCore,
+		"proxyCore":                  cfg.ProxyCore,
+		"mos_dns_enabled":            cfg.MosDNSEnabled,
+		"mosdnsEnabled":              cfg.MosDNSEnabled,
+		"subscription_urls":          cfg.SubscriptionURLs,
+		"subscriptionURLs":           cfg.SubscriptionURLs,
+		"mihomo_proxies":             cfg.MihomoProxies,
+		"mihomoProxies":              cfg.MihomoProxies,
+		"github_proxy_enabled":       cfg.GitHubProxyEnabled,
+		"github_https_proxy":         cfg.GitHubHTTPSProxy,
+		"github_http_proxy":          cfg.GitHubHTTPProxy,
+		"github_socks5_proxy":        cfg.GitHubSocks5Proxy,
+		"github_accelerator_enabled": cfg.GitHubAcceleratorEnabled,
+		"github_accelerator_url":     cfg.GitHubAcceleratorURL,
+		"is_initialized":             initialized,
+	}
+}
+
+func setupString(raw map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			return strings.TrimSpace(fmtAny(value))
 		}
-	}()
+	}
+	return ""
+}
+
+func setupBool(raw map[string]any, fallback bool, keys ...string) bool {
+	for _, key := range keys {
+		value, ok := raw[key]
+		if !ok {
+			continue
+		}
+		switch v := value.(type) {
+		case bool:
+			return v
+		case float64:
+			return v != 0
+		case int:
+			return v != 0
+		case string:
+			if strings.TrimSpace(v) == "" {
+				return fallback
+			}
+			return isTruthy(v)
+		default:
+			return isTruthy(fmtAny(v))
+		}
+	}
+	return fallback
+}
+
+func defaultSetupInterface() string {
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := iface.Addrs()
+		var ips []string
+		for _, addr := range addrs {
+			ips = append(ips, addr.String())
+		}
+		if primaryInterfaceIP(ips) != "" {
+			return iface.Name
+		}
+	}
+	return ""
+}
+
+func (a *App) handleSetupActivate(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	report := a.RestoreConfiguredRuntime(ctx)
+	if len(report.Errors) > 0 {
+		log.Printf("setup activation completed with errors: %s", strings.Join(report.Errors, "; "))
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":            true,
 		"port_changed":       false,
 		"port":               7777,
-		"activation_pending": true,
+		"activation_pending": false,
 		"runtime":            report,
+		"errors":             report.Errors,
 	})
 }
 
@@ -335,14 +481,39 @@ func supportsAMD64v3() bool {
 	if err != nil {
 		return false
 	}
-	flags := strings.ToLower(string(b))
+	return supportsAMD64v3Flags(string(b))
+}
+
+func supportsAMD64v3Flags(cpuInfo string) bool {
+	flags := cpuFlags(cpuInfo)
 	required := []string{"avx", "avx2", "bmi1", "bmi2", "fma", "lzcnt", "movbe", "xsave"}
 	for _, f := range required {
-		if !strings.Contains(flags, f) {
+		if f == "lzcnt" && flags["abm"] {
+			continue
+		}
+		if !flags[f] {
 			return false
 		}
 	}
 	return true
+}
+
+func cpuFlags(cpuInfo string) map[string]bool {
+	flags := map[string]bool{}
+	for _, line := range strings.Split(cpuInfo, "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(strings.ToLower(parts[0]))
+		if key != "flags" && key != "features" {
+			continue
+		}
+		for _, flag := range strings.Fields(strings.ToLower(parts[1])) {
+			flags[flag] = true
+		}
+	}
+	return flags
 }
 
 func amd64v3Status() string {

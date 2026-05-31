@@ -204,7 +204,26 @@ func diagnosticPortRows() []map[string]any {
 	}
 	rows := make([]map[string]any, 0, len(defs))
 	for _, def := range defs {
-		rows = append(rows, map[string]any{"service": def.Service, "port": def.Port, "description": def.Desc, "in_use": tcpPortOpen(def.Port)})
+		inUse := tcpPortOpen(def.Port)
+		status := "free"
+		if inUse {
+			status = "ok"
+		}
+		rows = append(rows, map[string]any{
+			"service":          def.Service,
+			"port":             def.Port,
+			"protocol":         "tcp",
+			"name":             def.Desc,
+			"description":      def.Desc,
+			"status":           status,
+			"in_use":           inUse,
+			"owner_process":    "",
+			"owner_pid":        nil,
+			"expected_owner":   def.Service,
+			"expected_pid":     nil,
+			"config_path_hint": "",
+			"notes":            "",
+		})
 	}
 	return rows
 }

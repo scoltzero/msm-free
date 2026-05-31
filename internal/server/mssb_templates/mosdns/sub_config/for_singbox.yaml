@@ -41,13 +41,13 @@ plugins:
     type: udp_server
     args:
       entry: sequence_sbnode
-      listen: ":7777"
+      listen: ":7778"
 
   - tag: sbnode_tcp
     type: tcp_server
     args:
       entry: sequence_sbnode
-      listen: ":7777"
+      listen: ":7778"
 
 #sing-box使用的服务器
   - tag: sb_udp

@@ -20,6 +20,7 @@ func (a *App) registerMihomoRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/mihomo/overview", a.handleMihomoOverview)
 	mux.HandleFunc("GET /api/v1/mihomo/dashboard", a.handleMihomoOverview)
 	mux.HandleFunc("GET /api/v1/mihomo/summary", a.handleMihomoOverview)
+	mux.HandleFunc("GET /api/v1/mihomo/stats", a.handleMihomoStats)
 	mux.HandleFunc("GET /api/v1/mihomo/version", a.handleMihomoVersion)
 	mux.HandleFunc("GET /api/v1/mihomo/versions", a.handleMihomoVersions)
 	mux.HandleFunc("POST /api/v1/mihomo/version", a.handleMihomoVersionSwitch)
@@ -84,6 +85,7 @@ func (a *App) registerMihomoRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/proxy", a.handleProxyOverview)
 	mux.HandleFunc("GET /api/v1/proxy/status", a.handleProxyOverview)
 	mux.HandleFunc("GET /api/v1/proxy/overview", a.handleProxyOverview)
+	mux.HandleFunc("GET /api/v1/proxy/stats", a.handleMihomoStats)
 	mux.HandleFunc("GET /api/v1/proxy/traffic", a.handleMihomoTraffic)
 	mux.HandleFunc("GET /api/v1/proxy/connections", a.handleMihomoConnections)
 	mux.HandleFunc("DELETE /api/v1/proxy/connections", a.handleMihomoConnectionsClose)
@@ -100,6 +102,15 @@ func (a *App) handleMihomoStatus(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleMihomoOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": a.mihomoSnapshot()})
+}
+
+func (a *App) handleMihomoStats(w http.ResponseWriter, r *http.Request) {
+	stats := mihomoStatsFromSnapshot(a.mihomoSnapshot())
+	resp := map[string]any{"success": true, "data": stats}
+	for key, value := range stats {
+		resp[key] = value
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (a *App) handleMihomoVersion(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +370,7 @@ func (a *App) handleMihomoConnectionClose(w http.ResponseWriter, r *http.Request
 
 func (a *App) handleMihomoProxies(w http.ResponseWriter, r *http.Request) {
 	payload := a.mihomoProxiesPayload(r)
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": payload, "groups": payload["groups"], "proxies": payload["proxies"], "providers": payload["providers"]})
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": payload, "groups": payload["groups"], "proxy_groups": payload["proxy_groups"], "proxy_list": payload["proxy_list"], "proxies": payload["proxies"], "providers": payload["providers"]})
 }
 
 func (a *App) handleMihomoProxySelect(w http.ResponseWriter, r *http.Request) {

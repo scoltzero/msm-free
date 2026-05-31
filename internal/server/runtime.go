@@ -27,8 +27,14 @@ func (a *App) RestoreConfiguredRuntime(ctx context.Context) RuntimeRestoreReport
 	if !report.Initialized {
 		return report
 	}
+	if cfg, ok := a.latestSetupConfig(); ok {
+		cfg.defaults()
+		if err := a.ensureSetupProviderArtifacts(cfg); err != nil {
+			report.Errors = append(report.Errors, "failed to sync setup providers: "+err.Error())
+		}
+	}
 	a.backfillConfiguredRuntimeDesired()
-	a.Services.StartEnabled(ctx)
+	report.Errors = append(report.Errors, a.Services.StartEnabled(ctx)...)
 	report.Services = a.Services.List()
 	if a.setting(nftDesiredKey, "") == "true" {
 		output, err := a.applyNFT(ctx)
@@ -80,4 +86,32 @@ func boolSetting(ok bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func (a *App) ensureSetupProviderArtifacts(cfg SetupConfig) error {
+	cfg.defaults()
+	providers := parseSubscriptionProviders(cfg.SubscriptionURLs)
+	includeManual := hasMihomoManualProxies(cfg.MihomoProxies)
+	if len(providers) == 0 && !includeManual {
+		return nil
+	}
+	if manual := renderMihomoManualProviderYAML(cfg.MihomoProxies); strings.TrimSpace(manual) != "" {
+		if old, err := a.readTextFile("configs/mihomo/proxy_providers/msm_manual.yaml"); err != nil || old != manual {
+			if err := a.writeTextFile("configs/mihomo/proxy_providers/msm_manual.yaml", manual); err != nil {
+				return err
+			}
+		}
+	}
+	config, err := a.readTextFile("configs/mihomo/config.yaml")
+	if err != nil {
+		return err
+	}
+	providerYAML := renderProxyProvidersYAML(providers, includeManual)
+	patched := replaceMihomoProxyProviders(config, providerYAML)
+	if patched != config {
+		if err := a.writeTextFile("configs/mihomo/config.yaml", patched); err != nil {
+			return err
+		}
+	}
+	return nil
 }

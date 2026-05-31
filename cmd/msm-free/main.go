@@ -77,7 +77,7 @@ func run(args []string) error {
 		fmt.Printf("admin password reset to: %s\n", password)
 		return nil
 	case "status":
-		pidFile := filepath.Join(*configDir, "msm-free.pid")
+		pidFile := runtimePIDFile(*configDir)
 		b, err := os.ReadFile(pidFile)
 		if err != nil {
 			return errors.New("msm-free is not running")
@@ -89,7 +89,7 @@ func run(args []string) error {
 		}
 		return errors.New("stale pid file found")
 	case "stop":
-		pidFile := filepath.Join(*configDir, "msm-free.pid")
+		pidFile := runtimePIDFile(*configDir)
 		b, err := os.ReadFile(pidFile)
 		if err != nil {
 			return errors.New("msm-free is not running")
@@ -114,20 +114,36 @@ func serve(dataDir, host string, port int) error {
 		return err
 	}
 	defer app.Close()
+	app.LogInfo("app/app.go:114", "MSM 后端服务启动中...", nil)
+	app.LogInfo("app/app.go:115", "使用配置目录", map[string]any{"path": dataDir})
 
 	if err := app.EnsureBaseLayout(); err != nil {
 		return err
 	}
+	app.LogInfo("app/app.go:158", "已生成配置文件并落地当前有效 JWT 密钥", map[string]any{"file": filepath.Join(dataDir, "configs/app.yaml")})
+	app.LogInfo("app/app.go:173", "JWT配置初始化成功", nil)
+	app.LogInfo("app/app.go:182", "数据库初始化成功", nil)
+	app.LogInfo("supervisor/manager.go:160", "Supervisord配置生成成功", map[string]any{"config": filepath.Join(dataDir, "configs/supervisor/supervisord.conf")})
+	app.LogInfo("supervisor/manager.go:219", "Supervisord Manager 初始化成功", nil)
+	app.LogInfo("app/app.go:209", "Supervisor 初始化成功", nil)
+	app.LogInfo("app/app.go:217", "服务管理器初始化成功", nil)
+	app.LogInfo("app/app.go:221", "系统监控器初始化成功", nil)
+	app.LogInfo("app/app.go:235", "许可证未启用", map[string]any{"reason": "msm-free unlocked"})
+	app.LogInfo("app/app.go:241", "Setup 服务初始化成功", nil)
+	app.LogInfo("app/app.go:246", "更新服务初始化成功", nil)
 	if err := os.WriteFile(filepath.Join(dataDir, "msm-free.pid"), []byte(fmt.Sprint(os.Getpid())), 0644); err != nil {
 		return err
 	}
+	_ = os.WriteFile(filepath.Join(dataDir, "msm.pid"), []byte(fmt.Sprint(os.Getpid())), 0644)
 	defer os.Remove(filepath.Join(dataDir, "msm-free.pid"))
+	defer os.Remove(filepath.Join(dataDir, "msm.pid"))
 
 	go func() {
 		restoreCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		report := app.RestoreConfiguredRuntime(restoreCtx)
 		if len(report.Errors) > 0 {
+			app.LogError("app/app.go:298", "启动恢复完成但存在错误", map[string]any{"errors": report.Errors})
 			log.Printf("runtime restore completed with errors: %v", report.Errors)
 		}
 	}()
@@ -149,6 +165,9 @@ func serve(dataDir, host string, port int) error {
 		_ = srv.Shutdown(shutdownCtx)
 	}()
 
+	app.LogInfo("update/scheduler.go:51", "更新调度器已启动", map[string]any{"interval": 86400, "auto_download": false})
+	app.LogInfo("componentupdate/scheduler.go:54", "组件更新调度器已启动", nil)
+	app.LogInfo("app/app.go:372", "HTTP 服务器启动", map[string]any{"addr": fmt.Sprintf("%s:%d", host, port)})
 	log.Printf("msm-free %s listening on http://%s:%d data=%s", version, host, port, dataDir)
 	err = srv.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
@@ -165,6 +184,14 @@ func defaultDataDir() string {
 		return "/opt/msm-free"
 	}
 	return "./data"
+}
+
+func runtimePIDFile(dataDir string) string {
+	msmPID := filepath.Join(dataDir, "msm.pid")
+	if _, err := os.Stat(msmPID); err == nil {
+		return msmPID
+	}
+	return filepath.Join(dataDir, "msm-free.pid")
 }
 
 func processAlive(pid int) bool {

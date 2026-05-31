@@ -19,11 +19,7 @@ func (a *App) registerEvents(mux *http.ServeMux) {
 
 func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {
 	a.sseLoopNamed(w, r, time.Second, "monitor", func() any {
-		return map[string]any{
-			"time":     time.Now(),
-			"services": a.Services.List(),
-			"ips":      localIPs(),
-		}
+		return a.monitorPayload()
 	})
 }
 
@@ -54,20 +50,107 @@ func (a *App) handleMihomoEvents(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleLogEvents(w http.ResponseWriter, r *http.Request) {
 	service := normalizeServiceName(r.PathValue("service"))
-	last := ""
-	a.sseLoop(w, r, 1500*time.Millisecond, func() any {
-		lines := filterLogLines(a.serviceLogLines(service, queryInt(r, "lines", 40)), r)
-		content := strings.Join(lines, "\n")
-		if content == last {
-			return map[string]any{"service": service, "line": "", "lines": []string{}, "logs": []any{}, "content": content}
+	if service == "" {
+		service = "msm"
+	}
+	limit := queryInt(r, "lines", 40)
+	if limit <= 0 {
+		limit = 40
+	}
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	flusher, _ := w.(http.Flusher)
+	enc := json.NewEncoder(w)
+	sendLine := func(line string) bool {
+		if strings.TrimSpace(line) == "" {
+			return true
 		}
-		last = content
-		line := ""
-		if len(lines) > 0 {
-			line = lines[len(lines)-1]
+		display := displayLogLine(line)
+		payload := map[string]any{
+			"service": service,
+			"line":    display,
+			"lines":   []string{display},
+			"logs":    structuredLogLines([]string{line}),
+			"content": display,
+			"raw":     line,
 		}
-		return map[string]any{"service": service, "line": line, "lines": lines, "logs": structuredLogLines(lines), "content": content}
-	})
+		fmt.Fprint(w, "event: logs\n")
+		fmt.Fprint(w, "data: ")
+		if err := enc.Encode(payload); err != nil {
+			return false
+		}
+		fmt.Fprint(w, "\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+		return true
+	}
+	sendLines := func(lines []string) bool {
+		for _, line := range lines {
+			if !sendLine(line) {
+				return false
+			}
+		}
+		return true
+	}
+	lines := filterLogLines(a.serviceLogLines(service, limit), r)
+	if !sendLines(lines) {
+		return
+	}
+	ticker := time.NewTicker(1500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			current := filterLogLines(a.serviceLogLines(service, limit), r)
+			delta := newLogEventLines(lines, current)
+			if len(delta) > 0 {
+				if !sendLines(delta) {
+					return
+				}
+				lines = current
+				continue
+			}
+			fmt.Fprint(w, ": heartbeat\n\n")
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+	}
+}
+
+func newLogEventLines(previous, current []string) []string {
+	if len(current) == 0 {
+		return nil
+	}
+	if len(previous) == 0 {
+		return current
+	}
+	maxOverlap := len(previous)
+	if len(current) < maxOverlap {
+		maxOverlap = len(current)
+	}
+	for overlap := maxOverlap; overlap >= 0; overlap-- {
+		if stringSlicesEqual(previous[len(previous)-overlap:], current[:overlap]) {
+			return current[overlap:]
+		}
+	}
+	return current
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *App) sseLoop(w http.ResponseWriter, r *http.Request, interval time.Duration, payload func() any) {
@@ -75,6 +158,7 @@ func (a *App) sseLoop(w http.ResponseWriter, r *http.Request, interval time.Dura
 }
 
 func (a *App) sseLoopNamed(w http.ResponseWriter, r *http.Request, interval time.Duration, event string, payload func() any) {
+	a.LogInfo("handler/sse.go:184", "SSE连接", map[string]any{"event": event, "path": r.URL.Path})
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")

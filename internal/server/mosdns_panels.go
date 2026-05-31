@@ -46,7 +46,8 @@ func (a *App) mosDNSSnapshot(limit int) map[string]any {
 			cache = remoteCache
 		}
 	}
-	upstream := mosDNSUpstreamStats(entries)
+	upstreamSummary := mosDNSUpstreamStats(entries)
+	upstreamRows := anyMapSlice(upstreamSummary["upstreams"])
 	remoteStats, remoteOK := a.mosDNSProxyStats()
 	queryCount := len(entries)
 	if remoteOK {
@@ -62,38 +63,112 @@ func (a *App) mosDNSSnapshot(limit int) map[string]any {
 	if cacheEntries == nil {
 		cacheEntries = cache["size"]
 	}
+	detailedCache := map[string]any{
+		"summary": cache,
+		"entries": mosDNSCacheRows(entries),
+		"items":   mosDNSCacheRows(entries),
+		"caches": map[string]any{
+			"fallback": map[string]any{
+				"query_total": cache["query_total"],
+				"hit_total":   cache["hit_total"],
+				"hit_rate":    cache["hit_rate"],
+			},
+		},
+	}
+	if remoteCache, ok := a.mosDNSProxyCache(); ok {
+		detailedCache = remoteCache
+		if _, ok := detailedCache["summary"]; !ok {
+			detailedCache["summary"] = cache
+		}
+		if _, ok := detailedCache["caches"]; !ok {
+			detailedCache["caches"] = map[string]any{"remote": map[string]any{"query_total": queryCount, "hit_total": cacheEntries, "hit_rate": cache["hit_rate"]}}
+		}
+	}
+	stats := map[string]any{
+		"cpu_percent":         st.CPU,
+		"process_rss_bytes":   normalizeMemoryBytes(st.Memory),
+		"go_goroutines":       0,
+		"go_gc_count":         0,
+		"go_gc_duration_sec":  0,
+		"go_threads":          0,
+		"open_fds":            0,
+		"max_fds":             0,
+		"cache_query_total":   queryCount,
+		"cache_hit_total":     numericAny(cache["hit_total"]),
+		"average_duration_ms": numericAny(audit["average_duration_ms"]),
+	}
+	if remoteOK {
+		for key, value := range remoteStats {
+			stats[key] = value
+		}
+	}
 	data := map[string]any{
-		"service":        st,
-		"status":         st.Status,
-		"running":        st.Running,
-		"installed":      st.Installed,
-		"pid":            st.PID,
-		"cpu":            st.CPU,
-		"memory":         st.Memory,
-		"uptime":         st.Uptime,
-		"version":        st.Version,
-		"clients":        clientCount,
-		"client_count":   clientCount,
-		"client_ips":     a.countTable("mosdns_client_ips"),
-		"switches":       a.mosDNSSwitchMap(),
-		"api_endpoint":   a.mosDNSAPIBase(),
-		"dns_listen":     ":53",
-		"query_count":    queryCount,
-		"cache_entries":  cacheEntries,
-		"cache":          cache,
-		"audit":          audit,
-		"upstream_stats": upstream,
-		"top_domains":    audit["top_domains"],
-		"top_clients":    audit["top_clients"],
-		"top_rules":      audit["top_rules"],
-		"meta":           mosDNSQueryMeta(entries),
-		"source":         "fallback",
+		"service":                st,
+		"status":                 st.Status,
+		"running":                st.Running,
+		"installed":              st.Installed,
+		"pid":                    st.PID,
+		"cpu":                    st.CPU,
+		"memory":                 st.Memory,
+		"uptime":                 st.Uptime,
+		"version":                st.Version,
+		"clients":                clientCount,
+		"client_count":           clientCount,
+		"client_ips":             a.countTable("mosdns_client_ips"),
+		"switches":               a.mosDNSSwitchMap(),
+		"api_endpoint":           a.mosDNSAPIBase(),
+		"dns_listen":             ":53",
+		"query_count":            queryCount,
+		"cache_entries":          cacheEntries,
+		"cache":                  cache,
+		"detailed_cache":         detailedCache,
+		"audit":                  audit,
+		"audit_stats":            audit,
+		"audit_ranks":            map[string]any{"domain": audit["top_domains"], "client": audit["top_clients"], "rule": audit["top_rules"], "domain_set": audit["top_rules"]},
+		"stats":                  stats,
+		"upstream_stats":         upstreamRows,
+		"upstream_summary":       upstreamSummary,
+		"upstream_stats_summary": upstreamSummary,
+		"top_domains":            audit["top_domains"],
+		"top_clients":            audit["top_clients"],
+		"top_rules":              audit["top_rules"],
+		"meta":                   mosDNSQueryMeta(entries),
+		"source":                 "fallback",
 	}
 	if remoteOK {
 		data["source"] = "mosdns_9099"
 		data["remote"] = remoteStats
 	}
 	return data
+}
+
+func normalizeMemoryBytes(value int64) int64 {
+	if value <= 0 {
+		return 0
+	}
+	if value < 1_000_000 {
+		return value * 1024 * 1024
+	}
+	return value
+}
+
+func numericAny(value any) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case float64:
+		return v
+	case json.Number:
+		n, _ := v.Float64()
+		return n
+	case string:
+		n, _ := strconv.ParseFloat(v, 64)
+		return n
+	default:
+		return 0
+	}
 }
 
 func (a *App) mosDNSProxyStats() (map[string]any, bool) {
@@ -280,14 +355,68 @@ func filterLogLines(lines []string, r *http.Request) []string {
 func structuredLogLines(lines []string) []map[string]any {
 	out := make([]map[string]any, 0, len(lines))
 	for _, line := range lines {
+		if entry, ok := structuredJSONLogLine(line); ok {
+			out = append(out, entry)
+			continue
+		}
 		out = append(out, map[string]any{
 			"time":    firstLogTime(line),
 			"level":   logLevelFromLine(line),
 			"message": line,
+			"display": line,
 			"raw":     line,
 		})
 	}
 	return out
+}
+
+func structuredJSONLogLine(line string) (map[string]any, bool) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "{") {
+		return nil, false
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		return nil, false
+	}
+	msg := stringMapValue(raw, "msg")
+	caller := stringMapValue(raw, "caller")
+	message := firstNonEmpty(
+		stringMapValue(raw, "message"),
+		stringMapValue(raw, "error"),
+		stringMapValue(raw, "path"),
+		stringMapValue(raw, "addr"),
+		stringMapValue(raw, "endpoint"),
+		stringMapValue(raw, "config"),
+	)
+	display := msg
+	if caller != "" && msg != "" && message != "" {
+		display = fmt.Sprintf("[%s] %s: %s", caller, msg, message)
+	} else if caller != "" && msg != "" {
+		display = fmt.Sprintf("[%s] %s", caller, msg)
+	} else if message != "" {
+		display = message
+	}
+	if display == "" {
+		display = line
+	}
+	level := strings.ToLower(firstNonEmpty(stringMapValue(raw, "level"), "info"))
+	return map[string]any{
+		"time":    stringMapValue(raw, "time"),
+		"level":   level,
+		"message": display,
+		"display": display,
+		"caller":  caller,
+		"msg":     msg,
+		"raw":     line,
+	}, true
+}
+
+func displayLogLine(line string) string {
+	if entry, ok := structuredJSONLogLine(line); ok {
+		return fmtAny(entry["display"])
+	}
+	return line
 }
 
 func mosDNSQueryRawLines(entries []map[string]any) []string {
@@ -310,6 +439,9 @@ func mosDNSQueryRawLines(entries []map[string]any) []string {
 }
 
 func logLevelFromLine(line string) string {
+	if entry, ok := structuredJSONLogLine(line); ok {
+		return fmtAny(entry["level"])
+	}
 	lower := strings.ToLower(line)
 	switch {
 	case strings.Contains(lower, "panic") || strings.Contains(lower, "fatal"):
@@ -326,6 +458,9 @@ func logLevelFromLine(line string) string {
 }
 
 func firstLogTime(line string) string {
+	if entry, ok := structuredJSONLogLine(line); ok {
+		return fmtAny(entry["time"])
+	}
 	fields := strings.Fields(line)
 	for _, field := range fields {
 		field = strings.Trim(field, "[]")

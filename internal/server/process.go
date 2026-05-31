@@ -198,15 +198,19 @@ func (sm *ServiceManager) StopAll(ctx context.Context) error {
 	return nil
 }
 
-func (sm *ServiceManager) StartEnabled(ctx context.Context) {
+func (sm *ServiceManager) StartEnabled(ctx context.Context) []string {
+	var errs []string
 	for _, name := range []string{"mosdns", "mihomo"} {
 		if sm.app.setting(serviceDesiredKey(name), "") != "true" {
 			continue
 		}
 		if _, err := sm.Start(ctx, name); err != nil {
-			log.Printf("failed to restore %s service: %v", name, err)
+			msg := fmt.Sprintf("failed to restore %s service: %v", name, err)
+			log.Print(msg)
+			errs = append(errs, msg)
 		}
 	}
+	return errs
 }
 
 func (sm *ServiceManager) setDesired(name string, enabled bool) {
