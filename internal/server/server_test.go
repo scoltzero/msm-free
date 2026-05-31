@@ -888,8 +888,26 @@ func TestRolePermissionsMatchMSMModel(t *testing.T) {
 	if res := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", viewer, map[string]string{"path": "configs/mihomo/config.yaml", "content": ""}); res.Code != http.StatusForbidden {
 		t.Fatalf("viewer should not update config, status=%d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestJSON(t, app, http.MethodGet, "/api/v1/logs/mihomo", viewer, nil); res.Code != http.StatusForbidden {
-		t.Fatalf("viewer should not read logs, status=%d body=%s", res.Code, res.Body.String())
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/logs/mihomo", viewer, nil); res.Code != http.StatusOK {
+		t.Fatalf("viewer should read logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/mosdns/query-logs", viewer, nil); res.Code != http.StatusOK {
+		t.Fatalf("viewer should read MosDNS query logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodDelete, "/api/v1/logs/mihomo", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not clear logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/users", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not read users, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/settings", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not read settings, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/audit-logs", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not read audit logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/api-tokens", operator, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("operator should not manage api tokens, status=%d body=%s", res.Code, res.Body.String())
 	}
 	if res := requestJSON(t, app, http.MethodGet, "/api/v1/services", guest, nil); res.Code != http.StatusForbidden {
 		t.Fatalf("guest should not read service status, status=%d body=%s", res.Code, res.Body.String())
@@ -1017,9 +1035,21 @@ func TestBasicManagementUsersTokensSettingsAndDiagnostics(t *testing.T) {
 	if selfDelete.Code != http.StatusBadRequest || !strings.Contains(selfDelete.Body.String(), "self_delete") {
 		t.Fatalf("self delete should be blocked: status=%d body=%s", selfDelete.Code, selfDelete.Body.String())
 	}
-	tokenCreate := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", token, map[string]any{"name": "test-token", "expires_in": 60})
+	selfRole := requestJSON(t, app, http.MethodPut, "/api/v1/users/1", token, map[string]any{"role": "operator", "is_active": true})
+	if selfRole.Code != http.StatusBadRequest || !strings.Contains(selfRole.Body.String(), "self_role_change") {
+		t.Fatalf("self role change should be blocked: status=%d body=%s", selfRole.Code, selfRole.Body.String())
+	}
+	selfDisable := requestJSON(t, app, http.MethodPut, "/api/v1/users/1", token, map[string]any{"role": "admin", "is_active": false})
+	if selfDisable.Code != http.StatusBadRequest || !strings.Contains(selfDisable.Body.String(), "self_disable") {
+		t.Fatalf("self disable should be blocked: status=%d body=%s", selfDisable.Code, selfDisable.Body.String())
+	}
+	tokenCreate := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", token, map[string]any{"name": "test-token", "expires_in": 60, "scope": "admin"})
 	if tokenCreate.Code != http.StatusOK || !strings.Contains(tokenCreate.Body.String(), "msmf_") {
 		t.Fatalf("api token create failed: status=%d body=%s", tokenCreate.Code, tokenCreate.Body.String())
+	}
+	tokenList := requestJSON(t, app, http.MethodGet, "/api/v1/api-tokens", token, nil)
+	if tokenList.Code != http.StatusOK || strings.Contains(tokenList.Body.String(), "msmf_") || !strings.Contains(tokenList.Body.String(), `"scope":"admin"`) {
+		t.Fatalf("api token list should include metadata only: status=%d body=%s", tokenList.Code, tokenList.Body.String())
 	}
 	audit := requestJSON(t, app, http.MethodGet, "/api/v1/audit-logs?action=user.create", token, nil)
 	if audit.Code != http.StatusOK || !strings.Contains(audit.Body.String(), "user.create") || !strings.Contains(audit.Body.String(), "pagination") {
@@ -1081,6 +1111,107 @@ func TestBasicManagementUsersTokensSettingsAndDiagnostics(t *testing.T) {
 	}
 	if !strings.Contains(string(manualProvider), "name: manual-node") || !strings.Contains(string(manualProvider), "type: trojan") {
 		t.Fatalf("manual proxy provider was not generated from settings setup config:\n%s", string(manualProvider))
+	}
+}
+
+func TestAPITokenScopesRestrictEffectivePermissions(t *testing.T) {
+	app := newTestApp(t)
+	admin := tokenForRole(t, app, "admin")
+	operatorJWT := tokenForRole(t, app, "operator")
+	if res := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", operatorJWT, map[string]any{"name": "bad", "scope": "read"}); res.Code != http.StatusForbidden {
+		t.Fatalf("non-admin should not create api tokens, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/api-tokens", operatorJWT, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("non-admin should not list api tokens, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodDelete, "/api/v1/api-tokens/999", operatorJWT, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("non-admin should not revoke api tokens, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", admin, map[string]any{"name": "bad-scope", "scope": "root"}); res.Code != http.StatusBadRequest {
+		t.Fatalf("invalid api token scope should fail, status=%d body=%s", res.Code, res.Body.String())
+	}
+	adminUser, _, err := app.findUserByUsername("admin_user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyToken := "msmf_legacy_test"
+	if _, err := app.DB.Exec(`insert into api_tokens(user_id,name,token_hash,expires_at,created_at,revoked) values(?,?,?,?,?,false)`, adminUser.ID, "legacy", tokenHash(legacyToken), nil, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/settings", legacyToken, nil); res.Code != http.StatusOK {
+		t.Fatalf("legacy api token without explicit scope should default to admin, status=%d body=%s", res.Code, res.Body.String())
+	}
+	readToken := createAPITokenForTest(t, app, admin, map[string]any{"name": "read-token", "scope": "read"})
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/monitor/system", readToken, nil); res.Code != http.StatusOK {
+		t.Fatalf("read token should read monitor, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/logs/msm", readToken, nil); res.Code != http.StatusOK {
+		t.Fatalf("read token should read logs, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPost, "/api/v1/services/start-all", readToken, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("read token should not operate services, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", readToken, map[string]any{"path": "configs/mihomo/config.yaml", "content": "mode: rule\n"}); res.Code != http.StatusForbidden {
+		t.Fatalf("read token should not update config, status=%d body=%s", res.Code, res.Body.String())
+	}
+	operateToken := createAPITokenForTest(t, app, admin, map[string]any{"name": "operate-token", "scope": "operate"})
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", operateToken, map[string]any{"path": "configs/mihomo/config.yaml", "content": "mode: rule\n"}); res.Code != http.StatusOK {
+		t.Fatalf("operate token should update config, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/settings", operateToken, map[string]any{"theme": "dark"}); res.Code != http.StatusForbidden {
+		t.Fatalf("operate token should not update settings, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/api-tokens", operateToken, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("operate token should not manage api tokens, status=%d body=%s", res.Code, res.Body.String())
+	}
+	operatorAdminScope := createAPITokenForTest(t, app, admin, map[string]any{"name": "operator-admin-scope", "username": "operator_user", "scope": "admin"})
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/settings", operatorAdminScope, map[string]any{"theme": "dark"}); res.Code != http.StatusForbidden {
+		t.Fatalf("operator-owned admin-scope token should not exceed operator role, status=%d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(t, app, http.MethodPut, "/api/v1/config/file", operatorAdminScope, map[string]any{"path": "configs/mihomo/config.yaml", "content": "mode: global\n"}); res.Code != http.StatusOK {
+		t.Fatalf("operator-owned admin-scope token should keep operator config permission, status=%d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestStructuredSettingsAdminOnlyValidationAndPersistence(t *testing.T) {
+	app := newTestApp(t)
+	admin := tokenForRole(t, app, "admin")
+	viewer := tokenForRole(t, app, "viewer")
+	if res := requestJSON(t, app, http.MethodGet, "/api/v1/settings/structured", viewer, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("viewer should not read structured settings, status=%d body=%s", res.Code, res.Body.String())
+	}
+	initial := requestJSON(t, app, http.MethodGet, "/api/v1/settings/structured", admin, nil)
+	if initial.Code != http.StatusOK || !strings.Contains(initial.Body.String(), `"appearance"`) || !strings.Contains(initial.Body.String(), `"mosdns"`) || !strings.Contains(initial.Body.String(), `"mihomo"`) {
+		t.Fatalf("structured settings get mismatch: status=%d body=%s", initial.Code, initial.Body.String())
+	}
+	update := requestJSON(t, app, http.MethodPut, "/api/v1/settings/structured", admin, map[string]any{
+		"appearance": map[string]any{"theme": "dark", "language": "zh-CN"},
+		"system":     map[string]any{"web_port": "18888", "log_level": "debug", "log_retention_days": 14},
+		"mosdns":     map[string]any{"fake_ip_range_v4": "28.0.0.0/8", "enabled": false},
+		"mihomo":     map[string]any{"linux_proxy_mode": "nft", "nft_proxy_policy": "direct_default", "subscription_urls": "机场A|https://example.com/a.yaml"},
+	})
+	if update.Code != http.StatusOK || !strings.Contains(update.Body.String(), `"restart_required":true`) || !strings.Contains(update.Body.String(), `"regenerate_required":true`) {
+		t.Fatalf("structured settings update mismatch: status=%d body=%s", update.Code, update.Body.String())
+	}
+	got := requestJSON(t, app, http.MethodGet, "/api/v1/settings/structured", admin, nil)
+	for _, want := range []string{`"theme":"dark"`, `"web_port":"18888"`, `"log_level":"debug"`, `"fake_ip_range_v4":"28.0.0.0/8"`, `"enabled":false`, `https://example.com/a.yaml`} {
+		if !strings.Contains(got.Body.String(), want) {
+			t.Fatalf("structured settings missing %q: status=%d body=%s", want, got.Code, got.Body.String())
+		}
+	}
+	for _, tc := range []struct {
+		name string
+		body map[string]any
+	}{
+		{"bad port", map[string]any{"system": map[string]any{"web_port": "70000"}}},
+		{"bad theme", map[string]any{"appearance": map[string]any{"theme": "blue"}}},
+		{"bad cidr", map[string]any{"mosdns": map[string]any{"fake_ip_range_v4": "not-a-cidr"}}},
+		{"bad url", map[string]any{"mihomo": map[string]any{"subscription_urls": "ftp://example.com/a.yaml"}}},
+	} {
+		res := requestJSON(t, app, http.MethodPut, "/api/v1/settings/structured", admin, tc.body)
+		if res.Code != http.StatusBadRequest {
+			t.Fatalf("%s should fail validation, status=%d body=%s", tc.name, res.Code, res.Body.String())
+		}
 	}
 }
 
@@ -1200,6 +1331,23 @@ func tokenForRole(t *testing.T, app *App, role string) string {
 	token, err := app.makeToken(u, time.Hour)
 	if err != nil {
 		t.Fatal(err)
+	}
+	return token
+}
+
+func createAPITokenForTest(t *testing.T, app *App, adminToken string, body map[string]any) string {
+	t.Helper()
+	res := requestJSON(t, app, http.MethodPost, "/api/v1/api-tokens", adminToken, body)
+	if res.Code != http.StatusOK {
+		t.Fatalf("api token create failed: status=%d body=%s", res.Code, res.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	token, _ := payload["token"].(string)
+	if token == "" {
+		t.Fatalf("api token create response missing token: %s", res.Body.String())
 	}
 	return token
 }

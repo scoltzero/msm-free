@@ -145,6 +145,16 @@ func (a *App) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil {
 		active = *req.IsActive
 	}
+	if u := currentUser(r); u != nil && u.ID == id {
+		if req.Role != old.Role {
+			writeError(w, http.StatusBadRequest, "self_role_change", "cannot change current user's role")
+			return
+		}
+		if !active {
+			writeError(w, http.StatusBadRequest, "self_disable", "cannot disable current user")
+			return
+		}
+	}
 	if old.Role == "admin" && (!active || req.Role != "admin") && a.activeAdminCount() <= 1 {
 		writeError(w, http.StatusBadRequest, "last_admin", "cannot disable or demote the last active admin")
 		return
@@ -230,6 +240,10 @@ func (a *App) handleToggleUser(w http.ResponseWriter, r *http.Request) {
 	target, err := a.userByID(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "not_found", "user not found")
+		return
+	}
+	if u := currentUser(r); u != nil && u.ID == id {
+		writeError(w, http.StatusBadRequest, "self_disable", "cannot disable current user")
 		return
 	}
 	if target.Role == "admin" && target.IsActive && a.activeAdminCount() <= 1 {

@@ -19,7 +19,7 @@
 
 ```bash
 curl -L -o msm-free-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msm-free/releases/download/v0.1.9/msm-free-linux-amd64.tar.gz
+  https://github.com/scoltzero/msm-free/releases/download/v0.1.10/msm-free-linux-amd64.tar.gz
 ```
 
 解压并安装：
@@ -149,19 +149,19 @@ go run ./cmd/msm-free serve -c ./data -p 7777
 构建 Linux x86_64 压缩包：
 
 ```bash
-make build VERSION=0.1.9
+make build VERSION=0.1.10
 ```
 
 构建 Unraid 插件产物：
 
 ```bash
-make unraid VERSION=0.1.9 UNRAID_VERSION=0.1.9 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.9
+make unraid VERSION=0.1.10 UNRAID_VERSION=0.1.10 GITHUB_REPO=scoltzero/msm-free RELEASE_TAG=v0.1.10
 ```
 
 构建产物：
 
 - `dist/msm-free-linux-amd64.tar.gz`
-- `dist/unraid/msm-free-0.1.9-x86_64-1.txz`
+- `dist/unraid/msm-free-0.1.10-x86_64-1.txz`
 - `msm-free.plg`
 
 发布时，`.txz` 和 Linux `.tar.gz` 上传到 GitHub Release，`msm-free.plg` 保留在仓库根目录供 Unraid 安装器读取。

@@ -17,6 +17,14 @@ import (
 )
 
 type userContextKey struct{}
+type authIdentityContextKey struct{}
+
+type AuthIdentity struct {
+	User       *User
+	AuthType   string
+	TokenID    int64
+	TokenScope string
+}
 
 type Claims struct {
 	UserID   int64  `json:"user_id"`
@@ -32,7 +40,17 @@ func currentUser(r *http.Request) *User {
 	return nil
 }
 
-func (a *App) authenticateRequest(r *http.Request) (*User, error) {
+func currentIdentity(r *http.Request) *AuthIdentity {
+	if identity, ok := r.Context().Value(authIdentityContextKey{}).(*AuthIdentity); ok {
+		return identity
+	}
+	if u := currentUser(r); u != nil {
+		return &AuthIdentity{User: u, AuthType: "jwt", TokenScope: "admin"}
+	}
+	return nil
+}
+
+func (a *App) authenticateRequest(r *http.Request) (*AuthIdentity, error) {
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, "Bearer ") {
 		if token := r.URL.Query().Get("token"); token != "" {
@@ -43,13 +61,13 @@ func (a *App) authenticateRequest(r *http.Request) (*User, error) {
 		return nil, errors.New("missing bearer")
 	}
 	tokenStr := strings.TrimPrefix(auth, "Bearer ")
-	if u, err := a.authenticateJWT(tokenStr); err == nil {
-		return u, nil
+	if identity, err := a.authenticateJWT(tokenStr); err == nil {
+		return identity, nil
 	}
 	return a.authenticateAPIToken(tokenStr)
 }
 
-func (a *App) authenticateJWT(tokenStr string) (*User, error) {
+func (a *App) authenticateJWT(tokenStr string) (*AuthIdentity, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (any, error) {
 		return a.Secret, nil
 	})
@@ -60,18 +78,28 @@ func (a *App) authenticateJWT(tokenStr string) (*User, error) {
 	if !ok {
 		return nil, errors.New("invalid claims")
 	}
-	return a.userByID(claims.UserID)
+	u, err := a.userByID(claims.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthIdentity{User: u, AuthType: "jwt", TokenScope: "admin"}, nil
 }
 
-func (a *App) authenticateAPIToken(token string) (*User, error) {
+func (a *App) authenticateAPIToken(token string) (*AuthIdentity, error) {
 	hash := tokenHash(token)
 	var userID int64
-	err := a.DB.QueryRow(`select user_id from api_tokens where token_hash=? and revoked=false and (expires_at is null or expires_at > ?)`, hash, time.Now()).Scan(&userID)
+	var tokenID int64
+	var scope string
+	err := a.DB.QueryRow(`select id,user_id,coalesce(scope,'admin') from api_tokens where token_hash=? and revoked=false and (expires_at is null or expires_at > ?)`, hash, time.Now()).Scan(&tokenID, &userID, &scope)
 	if err != nil {
 		return nil, err
 	}
 	_, _ = a.DB.Exec(`update api_tokens set last_used_at=? where token_hash=?`, time.Now(), hash)
-	return a.userByID(userID)
+	u, err := a.userByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthIdentity{User: u, AuthType: "api_token", TokenID: tokenID, TokenScope: normalizeTokenScope(scope)}, nil
 }
 
 func (a *App) makeToken(u *User, ttl time.Duration) (string, error) {
@@ -241,26 +269,32 @@ func (a *App) requireAdmin(r *http.Request) bool {
 	return u != nil && u.Role == "admin"
 }
 
-func (a *App) authorizeRequest(u *User, r *http.Request) bool {
-	if u == nil || !u.IsActive {
+func (a *App) authorizeRequest(identity *AuthIdentity, r *http.Request) bool {
+	if identity == nil || identity.User == nil || !identity.User.IsActive {
 		return false
 	}
-	role := strings.ToLower(strings.TrimSpace(u.Role))
+	u := identity.User
+	if !roleAllows(u.Role, r.Method, r.URL.Path) {
+		return false
+	}
+	if identity.AuthType != "api_token" {
+		return true
+	}
+	return tokenScopeAllows(identity.TokenScope, r.Method, r.URL.Path)
+}
+
+func roleAllows(role, method, path string) bool {
+	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "" {
 		role = "guest"
 	}
 	if role == "admin" {
 		return true
 	}
-	path := r.URL.Path
-	method := r.Method
-	if path == "/api/v1/auth/me" || path == "/api/v1/profile" || path == "/api/v1/profile/password" {
+	if selfServiceAllows(method, path) {
 		return true
 	}
 	if path == "/api/v1/settings/profile" || path == "/api/v1/settings/appearance" {
-		return role != "guest"
-	}
-	if strings.HasPrefix(path, "/api/v1/api-tokens") {
 		return role != "guest"
 	}
 	if role == "operator" {
@@ -280,6 +314,7 @@ func operatorAllows(method, path string) bool {
 		"/api/v1/daemon",
 		"/api/v1/users",
 		"/api/v1/audit-logs",
+		"/api/v1/api-tokens",
 		"/api/v1/settings",
 		"/api/v1/setup/reset",
 		"/api/v1/license-activation/activate",
@@ -304,12 +339,8 @@ func viewerAllows(method, path string) bool {
 	deniedPrefixes := []string{
 		"/api/v1/users",
 		"/api/v1/settings",
-		"/api/v1/logs",
-		"/api/v1/events/logs",
-		"/api/v1/mosdns/logs",
-		"/api/v1/mosdns/query-log",
-		"/api/v1/mosdns/query-logs",
-		"/api/v1/mosdns/audit",
+		"/api/v1/audit-logs",
+		"/api/v1/api-tokens",
 	}
 	for _, prefix := range deniedPrefixes {
 		if strings.HasPrefix(path, prefix) {
@@ -319,6 +350,8 @@ func viewerAllows(method, path string) bool {
 	return strings.HasPrefix(path, "/api/v1/version") ||
 		strings.HasPrefix(path, "/api/v1/monitor") ||
 		strings.HasPrefix(path, "/api/v1/services") ||
+		strings.HasPrefix(path, "/api/v1/logs") ||
+		strings.HasPrefix(path, "/api/v1/events/logs") ||
 		strings.HasPrefix(path, "/api/v1/config") ||
 		strings.HasPrefix(path, "/api/v1/history") ||
 		strings.HasPrefix(path, "/api/v1/mosdns") ||
@@ -328,6 +361,95 @@ func viewerAllows(method, path string) bool {
 		strings.HasPrefix(path, "/api/v1/system/diagnostics") ||
 		strings.HasPrefix(path, "/api/v1/update") ||
 		strings.HasPrefix(path, "/api/v1/component-updates")
+}
+
+func normalizeTokenScope(scope string) string {
+	switch strings.ToLower(strings.TrimSpace(scope)) {
+	case "read", "operate", "admin":
+		return strings.ToLower(strings.TrimSpace(scope))
+	default:
+		return "admin"
+	}
+}
+
+func validTokenScope(scope string) bool {
+	switch normalizeTokenScope(scope) {
+	case "read", "operate", "admin":
+		return strings.TrimSpace(scope) == "" || strings.EqualFold(strings.TrimSpace(scope), normalizeTokenScope(scope))
+	default:
+		return false
+	}
+}
+
+func tokenScopeAllows(scope, method, path string) bool {
+	switch normalizeTokenScope(scope) {
+	case "admin":
+		return true
+	case "operate":
+		return selfServiceAllows(method, path) ||
+			path == "/api/v1/settings/profile" ||
+			path == "/api/v1/settings/appearance" ||
+			operatorAllows(method, path)
+	case "read":
+		return readScopeAllows(method, path)
+	default:
+		return false
+	}
+}
+
+func selfServiceAllows(method, path string) bool {
+	return path == "/api/v1/auth/me" ||
+		path == "/api/v1/profile" ||
+		path == "/api/v1/profile/password"
+}
+
+func readScopeAllows(method, path string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	if path == "/api/v1/auth/me" || path == "/api/v1/profile" || path == "/api/v1/settings/profile" || path == "/api/v1/settings/appearance" {
+		return true
+	}
+	if path == "/api/v1/version" ||
+		strings.HasPrefix(path, "/api/v1/monitor") ||
+		strings.HasPrefix(path, "/api/v1/services") ||
+		strings.HasPrefix(path, "/api/v1/logs") ||
+		strings.HasPrefix(path, "/api/v1/events/logs") ||
+		strings.HasPrefix(path, "/api/v1/update/status") ||
+		strings.HasPrefix(path, "/api/v1/update/releases") ||
+		strings.HasPrefix(path, "/api/v1/component-updates") {
+		return true
+	}
+	for _, prefix := range []string{
+		"/api/v1/mosdns/status",
+		"/api/v1/mosdns/overview",
+		"/api/v1/mosdns/stats",
+		"/api/v1/mosdns/metrics",
+		"/api/v1/mosdns/version",
+		"/api/v1/mosdns/logs",
+		"/api/v1/mosdns/query-log",
+		"/api/v1/mosdns/query-logs",
+		"/api/v1/mosdns/audit",
+		"/api/v1/mosdns/cache/detailed",
+		"/api/v1/mosdns/upstream/stats",
+		"/api/v1/mihomo/status",
+		"/api/v1/mihomo/overview",
+		"/api/v1/mihomo/dashboard",
+		"/api/v1/mihomo/summary",
+		"/api/v1/mihomo/stats",
+		"/api/v1/mihomo/traffic",
+		"/api/v1/mihomo/logs",
+		"/api/v1/proxy/status",
+		"/api/v1/proxy/overview",
+		"/api/v1/proxy/stats",
+		"/api/v1/proxy/traffic",
+		"/api/v1/proxy/logs",
+	} {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func guestAllows(method, path string) bool {
@@ -343,7 +465,8 @@ func guestAllows(method, path string) bool {
 }
 
 func withUser(ctx context.Context, u *User) context.Context {
-	return context.WithValue(ctx, userContextKey{}, u)
+	ctx = context.WithValue(ctx, userContextKey{}, u)
+	return context.WithValue(ctx, authIdentityContextKey{}, &AuthIdentity{User: u, AuthType: "jwt", TokenScope: "admin"})
 }
 
 func passwordMatches(hash, supplied string) bool {

@@ -1,18 +1,18 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name "msm-free">
 <!ENTITY author "luochuhan">
-<!ENTITY version "0.1.9">
+<!ENTITY version "0.1.10">
 <!ENTITY githubRepo "scoltzero/msm-free">
-<!ENTITY releaseTag "v0.1.9">
-<!ENTITY packageName "msm-free-0.1.9-x86_64-1">
+<!ENTITY releaseTag "v0.1.10">
+<!ENTITY packageName "msm-free-0.1.10-x86_64-1">
 <!ENTITY packageFile "&packageName;.txz">
 <!ENTITY packageURL "https://github.com/&githubRepo;/releases/download/&releaseTag;/&packageFile;">
-<!ENTITY packageSHA256 "973affb16a66ddb2b6d84c825eb0eef900864d9e013d0029d06669dbedd66113">
+<!ENTITY packageSHA256 "06468a803485ceecef677cbd6010cb0c3b8bee30f8e15dac54d5a1b07be51784">
 ]>
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="https://raw.githubusercontent.com/&githubRepo;/main/msm-free.plg" launch="Settings/&name;" icon="network-wired" min="6.12.0">
   <CHANGES>
     <![CDATA[
-### msm-free 0.1.9
+### msm-free 0.1.10
 - Adds the `msm` compatibility CLI for status, restart, logs, doctor, update, and uninstall workflows.
 - Adds stop and uninstall runtime support with Linux and Unraid packaging integration.
 - Uses official zashboard assets for the Mihomo Web UI while keeping MSM-style native Mihomo pages fast.
@@ -56,8 +56,8 @@ set +e
 if [ -x /etc/rc.d/rc.msm-free ]; then
   /etc/rc.d/rc.msm-free stop
 fi
-removepkg msm-free-0.1.9-x86_64-1
-rm -f /boot/config/plugins/msm-free/msm-free-0.1.9-x86_64-1.txz
+removepkg msm-free-0.1.10-x86_64-1
+rm -f /boot/config/plugins/msm-free/msm-free-0.1.10-x86_64-1.txz
 echo "msm-free plugin removed. Persistent data remains under /mnt/user/appdata/msm-free unless you delete it manually."
       ]]>
     </INLINE>

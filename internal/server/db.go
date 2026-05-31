@@ -53,6 +53,7 @@ func (a *App) migrate() error {
 			user_id integer not null,
 			name text not null,
 			token_hash text not null,
+			scope text not null default 'admin',
 			last_used_at datetime,
 			expires_at datetime,
 			created_at datetime,
@@ -192,7 +193,32 @@ func (a *App) migrate() error {
 			return fmt.Errorf("migrate %q: %w", stmt, err)
 		}
 	}
+	if err := a.ensureAPITokenScopeColumn(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (a *App) ensureAPITokenScopeColumn() error {
+	rows, err := a.DB.Query(`pragma table_info(api_tokens)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == "scope" {
+			return nil
+		}
+	}
+	_, err = a.DB.Exec(`alter table api_tokens add column scope text not null default 'admin'`)
+	return err
 }
 
 func (a *App) IsInitialized() bool {

@@ -158,16 +158,18 @@ func (a *App) withCommonMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, apiPrefix) && !a.publicAPI(r.URL.Path) {
-			user, err := a.authenticateRequest(r)
+			identity, err := a.authenticateRequest(r)
 			if err != nil {
 				writeError(rec, http.StatusUnauthorized, "unauthorized", "请提供认证令牌")
 				return
 			}
-			if !a.authorizeRequest(user, r) {
+			if !a.authorizeRequest(identity, r) {
 				writeError(rec, http.StatusForbidden, "forbidden", "当前角色没有执行该操作的权限")
 				return
 			}
-			r = r.WithContext(context.WithValue(r.Context(), userContextKey{}, user))
+			ctx := context.WithValue(r.Context(), userContextKey{}, identity.User)
+			ctx = context.WithValue(ctx, authIdentityContextKey{}, identity)
+			r = r.WithContext(ctx)
 		}
 		next.ServeHTTP(rec, r)
 	})
@@ -295,6 +297,8 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/v1/settings", a.handleSettingsGet)
 	mux.HandleFunc("PUT /api/v1/settings", a.handleSettingsPut)
+	mux.HandleFunc("GET /api/v1/settings/structured", a.handleSettingsStructuredGet)
+	mux.HandleFunc("PUT /api/v1/settings/structured", a.handleSettingsStructuredPut)
 	mux.HandleFunc("GET /api/v1/settings/profile", a.handleSettingsProfileGet)
 	mux.HandleFunc("PUT /api/v1/settings/profile", a.handleSettingsProfilePut)
 	mux.HandleFunc("GET /api/v1/settings/appearance", a.handleSettingsAppearanceGet)
