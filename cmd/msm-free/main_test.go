@@ -49,3 +49,12 @@ func TestSafeRemoveAllRejectsBroadPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestSelfUpdateArchiveNameUsesRuntimeArch(t *testing.T) {
+	if got := selfUpdateArchiveName("linux", "arm64"); got != "msm-free-linux-arm64.tar.gz" {
+		t.Fatalf("selfUpdateArchiveName(linux, arm64) = %q", got)
+	}
+	if got := selfUpdateArchiveName("linux", "amd64"); got != "msm-free-linux-amd64.tar.gz" {
+		t.Fatalf("selfUpdateArchiveName(linux, amd64) = %q", got)
+	}
+}

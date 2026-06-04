@@ -22,14 +22,83 @@ type DownloadEvent struct {
 	Message  string `json:"message"`
 }
 
-func componentDownloadURL(component string) string {
+func (a *App) componentDownloadURL(component string) string {
+	mihomoCoreType, amd64v3 := a.componentDownloadOptions()
+	return componentDownloadURLFor(component, runtime.GOOS, runtime.GOARCH, mihomoCoreType, amd64v3)
+}
+
+func (a *App) componentDownloadOptions() (string, bool) {
+	if a == nil || a.DB == nil {
+		return "meta", false
+	}
+	var coreType string
+	var amd64v3 bool
+	err := a.DB.QueryRow(`select coalesce(mihomo_core_type,'meta'), amd64v3_enabled from system_setups order by id desc limit 1`).Scan(&coreType, &amd64v3)
+	if err != nil {
+		return "meta", false
+	}
+	return normalizeMihomoCoreType(coreType), amd64v3
+}
+
+func componentDownloadURLFor(component, goos, goarch, mihomoCoreType string, amd64v3 bool) string {
 	switch component {
 	case "mihomo":
-		return "https://github.com/baozaodetudou/mssb/releases/download/mihomo/mihomo-meta-linux-amd64.tar.gz"
+		if goos != "linux" {
+			return ""
+		}
+		arch := mihomoAssetArch(goarch, amd64v3)
+		if arch == "" {
+			return ""
+		}
+		return fmt.Sprintf("https://github.com/baozaodetudou/mssb/releases/download/mihomo/mihomo-%s-linux-%s.tar.gz", normalizeMihomoCoreType(mihomoCoreType), arch)
 	case "mosdns":
-		return "https://github.com/baozaodetudou/mssb/releases/download/mosdns/mosdns-linux-amd64.zip"
+		if goos != "linux" {
+			return ""
+		}
+		arch := mosDNSAssetArch(goarch, amd64v3)
+		if arch == "" {
+			return ""
+		}
+		return fmt.Sprintf("https://github.com/baozaodetudou/mssb/releases/download/mosdns/mosdns-linux-%s.zip", arch)
 	case "zashboard", "ui":
 		return "https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip"
+	default:
+		return ""
+	}
+}
+
+func normalizeMihomoCoreType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "alpha":
+		return "alpha"
+	default:
+		return "meta"
+	}
+}
+
+func mihomoAssetArch(goarch string, amd64v3 bool) string {
+	switch goarch {
+	case "amd64":
+		if amd64v3 {
+			return "amd64v3"
+		}
+		return "amd64"
+	case "arm64":
+		return "arm64"
+	default:
+		return ""
+	}
+}
+
+func mosDNSAssetArch(goarch string, amd64v3 bool) string {
+	switch goarch {
+	case "amd64":
+		if amd64v3 {
+			return "amd64-v3"
+		}
+		return "amd64"
+	case "arm64":
+		return "arm64"
 	default:
 		return ""
 	}
@@ -47,9 +116,9 @@ func (a *App) installComponent(component string, emit func(DownloadEvent)) error
 	if _, err := os.Stat(target); err == nil {
 		emit(DownloadEvent{Status: "running", Progress: 5, Message: component + " already installed; refreshing files"})
 	}
-	url := componentDownloadURL(component)
+	url := a.componentDownloadURL(component)
 	if url == "" {
-		return fmt.Errorf("no download URL for %s", component)
+		return fmt.Errorf("no download URL for %s on %s/%s", component, runtime.GOOS, runtime.GOARCH)
 	}
 	emit(DownloadEvent{Status: "running", Progress: 5, Message: "downloading " + url})
 	tmp := filepath.Join(a.DataDir, "data", component+".download")

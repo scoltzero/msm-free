@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -530,18 +531,23 @@ func updateRuntime(opts updateOptions) error {
 	if opts.Repo == "" {
 		opts.Repo = defaultGitHubRepo()
 	}
+	archiveName := selfUpdateArchiveName(runtime.GOOS, runtime.GOARCH)
 	if opts.URL == "" {
-		opts.URL = "https://github.com/" + opts.Repo + "/releases/latest/download/msm-free-linux-amd64.tar.gz"
+		opts.URL = "https://github.com/" + opts.Repo + "/releases/latest/download/" + archiveName
 	}
-	if _, err := url.ParseRequestURI(opts.URL); err != nil {
+	parsedURL, err := url.ParseRequestURI(opts.URL)
+	if err != nil {
 		return fmt.Errorf("invalid update URL: %w", err)
+	}
+	if base := filepath.Base(parsedURL.Path); base != "." && base != "/" && base != "" {
+		archiveName = base
 	}
 	tmp, err := os.MkdirTemp("", "msm-free-update-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	archivePath := filepath.Join(tmp, "msm-free-linux-amd64.tar.gz")
+	archivePath := filepath.Join(tmp, archiveName)
 	fmt.Printf("downloading %s\n", opts.URL)
 	if err := downloadFile(opts.URL, archivePath); err != nil {
 		return err
@@ -639,6 +645,16 @@ WantedBy=multi-user.target
 	}
 	fmt.Printf("installed systemd service: %s\n", opts.ServiceName)
 	return nil
+}
+
+func selfUpdateArchiveName(goos, goarch string) string {
+	if goos == "" {
+		goos = "linux"
+	}
+	if goarch == "" {
+		goarch = "amd64"
+	}
+	return fmt.Sprintf("msm-free-%s-%s.tar.gz", goos, goarch)
 }
 
 func removeSystemdService(serviceName string) error {

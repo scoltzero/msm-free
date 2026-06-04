@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -83,7 +84,7 @@ func (a *App) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": a.selfUpdateState()})
 		return
 	}
-	downloadURL := releaseAssetURL(release, "linux-amd64", ".tar.gz")
+	downloadURL := releaseAssetURL(release, selfUpdateAssetContainsFor(runtime.GOOS, runtime.GOARCH), ".tar.gz")
 	hasUpdate := versionDifferent(a.Version, release.TagName)
 	now := time.Now()
 	_, _ = a.DB.Exec(`insert into update_info(component,current_version,latest_version,has_update,status,progress,error_message,download_url,release_notes,last_check_time,created_at,updated_at)
@@ -185,10 +186,10 @@ func (a *App) handleUpdateDownload(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": err.Error(), "data": state})
 			return
 		}
-		rawURL = releaseAssetURL(release, "linux-amd64", ".tar.gz")
+		rawURL = releaseAssetURL(release, selfUpdateAssetContainsFor(runtime.GOOS, runtime.GOARCH), ".tar.gz")
 	}
 	if rawURL == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": "no linux-amd64 release asset found", "data": state})
+		writeJSON(w, http.StatusOK, map[string]any{"success": false, "error": "no " + selfUpdateAssetContainsFor(runtime.GOOS, runtime.GOARCH) + " release asset found", "data": state})
 		return
 	}
 	dest := filepath.Join(a.DataDir, "data", "updates", filepath.Base(rawURL))
@@ -234,7 +235,7 @@ func (a *App) handleComponentUpdateCheck(w http.ResponseWriter, r *http.Request)
 	state := a.componentUpdateState(component)
 	if remote, err := a.componentRemoteInfo(component); err == nil {
 		state["latest_version"] = remote.TagName
-		state["download_url"] = firstNonEmpty(releaseAssetURL(remote, component, ""), componentDownloadURL(component))
+		state["download_url"] = firstNonEmpty(a.componentReleaseAssetURL(remote, component), a.componentDownloadURL(component))
 		state["release_body"] = remote.Body
 		state["has_update"] = versionDifferent(fmt.Sprint(state["current_version"]), remote.TagName)
 	}
@@ -256,7 +257,7 @@ func (a *App) handleComponentUpdateRun(w http.ResponseWriter, r *http.Request) {
 	_, _ = a.DB.Exec(`insert into component_update_info(component,current_version,latest_version,has_update,download_url,status,progress,created_at,updated_at)
 		values(?,?,?,?,?,?,?,?,?)
 		on conflict(component) do update set status='running',progress=5,error_message='',updated_at=excluded.updated_at`,
-		component, a.componentCurrentVersion(component), "latest", true, componentDownloadURL(component), "running", 5, now, now)
+		component, a.componentCurrentVersion(component), "latest", true, a.componentDownloadURL(component), "running", 5, now, now)
 	last := DownloadEvent{Status: "running", Progress: 5, Message: "starting"}
 	err := a.installComponent(component, func(ev DownloadEvent) {
 		last = ev
@@ -310,7 +311,7 @@ func (a *App) componentUpdateState(component string) map[string]any {
 		"current_version": current,
 		"latest_version":  "latest",
 		"has_update":      !installed,
-		"download_url":    componentDownloadURL(component),
+		"download_url":    a.componentDownloadURL(component),
 		"status":          "idle",
 		"progress":        0,
 		"error_message":   "",
@@ -346,7 +347,7 @@ func (a *App) componentRemoteInfo(component string) (githubRelease, error) {
 		if err != nil {
 			return githubRelease{}, err
 		}
-		return githubRelease{TagName: "gh-pages-" + shortSHA(commit.SHA), Name: "zashboard gh-pages", Body: commit.Commit.Message, Assets: []githubAsset{{Name: "gh-pages.zip", BrowserDownloadURL: componentDownloadURL("zashboard")}}}, nil
+		return githubRelease{TagName: "gh-pages-" + shortSHA(commit.SHA), Name: "zashboard gh-pages", Body: commit.Commit.Message, Assets: []githubAsset{{Name: "gh-pages.zip", BrowserDownloadURL: a.componentDownloadURL("zashboard")}}}, nil
 	default:
 		return githubRelease{}, fmt.Errorf("unknown component %s", component)
 	}
@@ -576,6 +577,49 @@ func releaseAssetURL(release githubRelease, contains, suffix string) string {
 		return release.Assets[0].BrowserDownloadURL
 	}
 	return ""
+}
+
+func selfUpdateAssetContainsFor(goos, goarch string) string {
+	if goos == "" {
+		goos = "linux"
+	}
+	switch goarch {
+	case "amd64", "arm64":
+		return goos + "-" + goarch
+	default:
+		return goos + "-" + goarch
+	}
+}
+
+func (a *App) componentReleaseAssetURL(release githubRelease, component string) string {
+	want := downloadAssetName(a.componentDownloadURL(component))
+	if want == "" {
+		return ""
+	}
+	for _, asset := range release.Assets {
+		if strings.EqualFold(asset.Name, want) {
+			return asset.BrowserDownloadURL
+		}
+	}
+	return ""
+}
+
+func downloadAssetName(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return ""
+	}
+	if i := strings.IndexAny(rawURL, "?#"); i >= 0 {
+		rawURL = rawURL[:i]
+	}
+	rawURL = strings.TrimRight(rawURL, "/")
+	if rawURL == "" {
+		return ""
+	}
+	if i := strings.LastIndex(rawURL, "/"); i >= 0 {
+		return rawURL[i+1:]
+	}
+	return rawURL
 }
 
 func versionDifferent(current, latest string) bool {

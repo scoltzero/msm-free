@@ -157,6 +157,86 @@ func TestSetupConfigNormalizesSubscriptionInputs(t *testing.T) {
 	}
 }
 
+func TestComponentDownloadURLForRuntimeArch(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     string
+		goos          string
+		goarch        string
+		mihomoCore    string
+		amd64v3       bool
+		wantSubstring string
+	}{
+		{
+			name:          "mihomo meta amd64",
+			component:     "mihomo",
+			goos:          "linux",
+			goarch:        "amd64",
+			mihomoCore:    "meta",
+			wantSubstring: "mihomo-meta-linux-amd64.tar.gz",
+		},
+		{
+			name:          "mihomo alpha amd64v3",
+			component:     "mihomo",
+			goos:          "linux",
+			goarch:        "amd64",
+			mihomoCore:    "alpha",
+			amd64v3:       true,
+			wantSubstring: "mihomo-alpha-linux-amd64v3.tar.gz",
+		},
+		{
+			name:          "mihomo arm64",
+			component:     "mihomo",
+			goos:          "linux",
+			goarch:        "arm64",
+			mihomoCore:    "meta",
+			amd64v3:       true,
+			wantSubstring: "mihomo-meta-linux-arm64.tar.gz",
+		},
+		{
+			name:          "mosdns amd64v3",
+			component:     "mosdns",
+			goos:          "linux",
+			goarch:        "amd64",
+			amd64v3:       true,
+			wantSubstring: "mosdns-linux-amd64-v3.zip",
+		},
+		{
+			name:          "mosdns arm64",
+			component:     "mosdns",
+			goos:          "linux",
+			goarch:        "arm64",
+			amd64v3:       true,
+			wantSubstring: "mosdns-linux-arm64.zip",
+		},
+		{
+			name:          "zashboard is architecture independent",
+			component:     "zashboard",
+			goos:          "linux",
+			goarch:        "arm64",
+			wantSubstring: "dist.zip",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := componentDownloadURLFor(tt.component, tt.goos, tt.goarch, tt.mihomoCore, tt.amd64v3)
+			if !strings.Contains(got, tt.wantSubstring) {
+				t.Fatalf("componentDownloadURLFor() = %q, want substring %q", got, tt.wantSubstring)
+			}
+		})
+	}
+}
+
+func TestSelfUpdateAssetContainsForRuntimeArch(t *testing.T) {
+	if got := selfUpdateAssetContainsFor("linux", "arm64"); got != "linux-arm64" {
+		t.Fatalf("selfUpdateAssetContainsFor(linux, arm64) = %q", got)
+	}
+	if got := selfUpdateAssetContainsFor("linux", "amd64"); got != "linux-amd64" {
+		t.Fatalf("selfUpdateAssetContainsFor(linux, amd64) = %q", got)
+	}
+}
+
 func TestSupportsAMD64v3AcceptsABMAsLZCNTCompat(t *testing.T) {
 	cpuInfo := `processor : 0
 vendor_id : GenuineIntel
