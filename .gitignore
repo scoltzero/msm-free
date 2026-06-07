@@ -9,3 +9,9 @@ output/
 scraped-pages/
 msm_html_export.tar.gz
 *.tsbuildinfo
+
+# 本地工具产物（Claude Code / graphify），不纳入版本库
+.codex/
+.graphify_detect.json
+.graphify_python
+graphify-out/
