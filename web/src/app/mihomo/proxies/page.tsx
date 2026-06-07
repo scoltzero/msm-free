@@ -119,9 +119,9 @@ const EMPTY_STATS: RuntimeStats = {
   mode: "-",
 };
 
-const PROXIES_SETTINGS_KEY = "msm-mihomo-proxies.settings";
-const PROXIES_TAB_KEY = "msm-mihomo-proxies.tab";
-const COLLAPSE_PREFIX = "msm-mihomo-proxies.collapse";
+const PROXIES_SETTINGS_KEY = "msf-mihomo-proxies.settings";
+const PROXIES_TAB_KEY = "msf-mihomo-proxies.tab";
+const COLLAPSE_PREFIX = "msf-mihomo-proxies.collapse";
 const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 const DEFAULT_PROXY_SETTINGS: ProxyPageSettings = {

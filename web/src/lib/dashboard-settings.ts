@@ -15,8 +15,8 @@ export interface DashboardSettings {
   visible: Record<DashboardComponentKey, boolean>;
 }
 
-export const DASHBOARD_SETTINGS_EVENT = "msm:dashboard-settings";
-export const DASHBOARD_SETTINGS_STORAGE_KEY = "msm.dashboard.settings.v1";
+export const DASHBOARD_SETTINGS_EVENT = "msf:dashboard-settings";
+export const DASHBOARD_SETTINGS_STORAGE_KEY = "msf.dashboard.settings.v1";
 
 export const dashboardComponentOptions: Array<{ key: DashboardComponentKey; label: string }> = [
   { key: "device", label: "设备信息" },

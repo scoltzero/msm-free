@@ -32,7 +32,7 @@ const languageOptions = ["简体中文", "English"];
 
 function getInitialTheme(): ThemeMode {
   if (typeof window === "undefined") return "system";
-  const stored = window.localStorage.getItem("msm-theme");
+  const stored = window.localStorage.getItem("msf-theme");
   if (stored === "light" || stored === "dark" || stored === "system") return stored;
   return "system";
 }
@@ -46,7 +46,7 @@ function applyTheme(mode: ThemeMode) {
   const shouldUseDark = mode === "dark" || (mode === "system" && prefersDarkMode());
   document.documentElement.classList.toggle("dark", shouldUseDark);
   document.documentElement.classList.toggle("light", !shouldUseDark);
-  window.localStorage.setItem("msm-theme", mode);
+  window.localStorage.setItem("msf-theme", mode);
 }
 
 export function AppHeader({ onToggleSidebar, sidebarCollapsed = false }: { onToggleSidebar?: () => void; sidebarCollapsed?: boolean }) {

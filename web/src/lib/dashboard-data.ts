@@ -66,7 +66,7 @@ export const mobileNavItems: NavItem[] = navItems.map((item) => ({
 }));
 
 export const deviceInfo: InfoRow[] = [
-  { label: "主机名", value: "msm" },
+  { label: "主机名", value: "msf" },
   { label: "系统平台", value: "debian" },
   { label: "运行时间", value: "1 天 8 小时" },
   { label: "操作系统", value: "linux" },

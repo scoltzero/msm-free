@@ -28,7 +28,7 @@ export function SingBoxPage({ tab }: { tab: "overview" | "config" | "logs" }) {
               </div>
               <h2 className="text-lg font-semibold">{data.display_name || "Sing-Box"} 未配置</h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                {data.message || "sing-box is not implemented in msm-free x86 first version"}
+                {data.message || "sing-box is not implemented in msf x86 first version"}
               </p>
             </div>
           </div>

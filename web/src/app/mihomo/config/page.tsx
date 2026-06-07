@@ -87,7 +87,7 @@ function isUserConfigPath(path: string) {
 }
 
 function isReservedConfigName(name: string) {
-  return ["config.yaml", "phone_config.yaml", "msm_generated.backup.yaml", "config.yaml.backup"].includes(name.trim().toLowerCase());
+  return ["config.yaml", "phone_config.yaml", "msf_generated.backup.yaml", "config.yaml.backup"].includes(name.trim().toLowerCase());
 }
 
 function normalizeClientConfigName(name: string) {

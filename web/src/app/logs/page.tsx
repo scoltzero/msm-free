@@ -8,7 +8,7 @@ import { useToaster, ToastStack } from "@/components/Toaster";
 import { api, apiList } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-type Service = "msm" | "mosdns" | "singbox" | "mihomo";
+type Service = "msf" | "mosdns" | "singbox" | "mihomo";
 type Level = "ERROR" | "WARN" | "INFO" | "DEBUG";
 
 interface LogEntry {
@@ -21,7 +21,7 @@ interface LogEntry {
   source?: string;
 }
 
-const services: Service[] = ["msm", "mosdns", "singbox", "mihomo"];
+const services: Service[] = ["msf", "mosdns", "singbox", "mihomo"];
 const levels: Array<"all" | Level> = ["all", "ERROR", "WARN", "INFO", "DEBUG"];
 const badgeClass: Record<Level, string> = {
   ERROR: "bg-red-600 dark:bg-red-500 text-white",
@@ -35,7 +35,7 @@ const toolIconBtn =
 
 function normalizeService(value?: string): Service {
   if (value === "mosdns" || value === "singbox" || value === "mihomo") return value;
-  return "msm";
+  return "msf";
 }
 
 function normalizeLevel(value?: string): Level {
@@ -161,7 +161,7 @@ export default function LogsPage({ initialService }: { initialService?: Service 
 
   useEffect(() => {
     if (paused) return;
-    const token = window.localStorage.getItem("msm_token") || "";
+    const token = window.localStorage.getItem("msf_token") || "";
     const search = new URLSearchParams({ lines: "80" });
     if (token) search.set("token", token);
     if (level !== "all") search.set("level", level.toLowerCase());
@@ -207,7 +207,7 @@ export default function LogsPage({ initialService }: { initialService?: Service 
   };
 
   const download = () => {
-    window.location.href = `/api/v1/logs/${service}/download?token=${encodeURIComponent(window.localStorage.getItem("msm_token") || "")}`;
+    window.location.href = `/api/v1/logs/${service}/download?token=${encodeURIComponent(window.localStorage.getItem("msf_token") || "")}`;
   };
 
   return (

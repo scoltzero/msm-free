@@ -116,7 +116,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
-    const saved = Number(window.sessionStorage.getItem("msm-sidebar-scroll") || 0);
+    const saved = Number(window.sessionStorage.getItem("msf-sidebar-scroll") || 0);
     window.requestAnimationFrame(() => {
       nav.scrollTop = saved;
     });
@@ -133,7 +133,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
         <nav
           ref={navRef}
           onScroll={(event) => {
-            window.sessionStorage.setItem("msm-sidebar-scroll", String(event.currentTarget.scrollTop));
+            window.sessionStorage.setItem("msf-sidebar-scroll", String(event.currentTarget.scrollTop));
           }}
           className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin px-3 py-4 space-y-1"
         >

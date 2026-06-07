@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
     const onExpired = () => setUser(null);
-    window.addEventListener("msm-auth-expired", onExpired);
-    return () => window.removeEventListener("msm-auth-expired", onExpired);
+    window.addEventListener("msf-auth-expired", onExpired);
+    return () => window.removeEventListener("msf-auth-expired", onExpired);
   }, [refresh]);
 
   const login = useCallback(async (username: string, password: string) => {

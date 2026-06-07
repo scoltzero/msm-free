@@ -23,7 +23,7 @@ interface ServiceItem {
   supported?: boolean;
 }
 
-const SUPPORTED_SERVICES = new Set(["msm", "mosdns", "mihomo"]);
+const SUPPORTED_SERVICES = new Set(["msf", "mosdns", "mihomo"]);
 
 function formatUptime(value?: number | string) {
   if (typeof value === "string" && value.trim()) return value;

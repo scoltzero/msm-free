@@ -1,5 +1,5 @@
-export const TOKEN_KEY = "msm_token";
-export const REFRESH_TOKEN_KEY = "msm_refresh_token";
+export const TOKEN_KEY = "msf_token";
+export const REFRESH_TOKEN_KEY = "msf_refresh_token";
 
 export interface ApiErrorPayload {
   error?: string;
@@ -43,7 +43,7 @@ export function setSession(token: string, refreshToken?: string) {
 export function clearSession() {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-  window.localStorage.removeItem("msm-auth");
+  window.localStorage.removeItem("msf-auth");
 }
 
 function parsePayloadMessage(payload: unknown, fallback: string) {
@@ -76,7 +76,7 @@ export async function api<T = any>(path: string, options: ApiOptions = {}): Prom
   if (!response.ok) {
     if (response.status === 401) {
       clearSession();
-      window.dispatchEvent(new Event("msm-auth-expired"));
+      window.dispatchEvent(new Event("msf-auth-expired"));
     }
     const code =
       payload && typeof payload === "object" && "error" in payload

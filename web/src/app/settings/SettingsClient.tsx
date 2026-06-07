@@ -151,7 +151,7 @@ const themeOptions: Array<{ id: ThemeMode; label: string; Icon: LucideIcon }> = 
 ];
 
 const RELEASE_REPO_OWNER = "scoltzero";
-const RELEASE_REPO_NAME = "msm-free";
+const RELEASE_REPO_NAME = "msf";
 const RELEASE_REPO = `${RELEASE_REPO_OWNER}/${RELEASE_REPO_NAME}`;
 const RELEASE_REPO_URL = `https://github.com/${RELEASE_REPO}`;
 
@@ -1077,7 +1077,7 @@ function AppearanceTab({ showToast }: { showToast: (message: string) => void }) 
     const dark = mode === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : mode === "dark";
     document.documentElement.classList.toggle("dark", dark);
     document.documentElement.classList.toggle("light", !dark);
-    localStorage.setItem("msm-theme", mode);
+    localStorage.setItem("msf-theme", mode);
   };
 
   useEffect(() => {
@@ -1505,7 +1505,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
   };
 
   const installUpdate = async () => {
-    if (!window.confirm("安装更新会重启 msm-free 服务，当前 WebUI 会短暂断开。是否继续？")) return;
+    if (!window.confirm("安装更新会重启 msf 服务，当前 WebUI 会短暂断开。是否继续？")) return;
     try {
       const payload = await api<any>("/api/v1/update/install", { method: "POST" });
       if (payload.success === false) {
