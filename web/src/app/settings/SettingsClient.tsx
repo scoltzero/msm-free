@@ -236,6 +236,21 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isTransientRestartError(error: unknown) {
+  const message = errorMessage(error).toLowerCase();
+  return [
+    "terminated",
+    "aborted",
+    "aborterror",
+    "load failed",
+    "failed to fetch",
+    "networkerror",
+    "network error",
+    "connection refused",
+    "connection reset",
+  ].some((part) => message.includes(part));
+}
+
 const defaultInitConfig: InitConfigState = {
   iface: "enp1s0 (192.168.10.3)",
   proxyCore: "Mihomo",
@@ -1340,13 +1355,24 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
   const [componentConfigs, setComponentConfigs] = useState<Record<string, ComponentUpdateConfigState>>({});
   const [componentBusy, setComponentBusy] = useState("");
   const [repoError, setRepoError] = useState("");
+  const [restartPending, setRestartPending] = useState(false);
+  const restartRefreshTimer = useRef<number | null>(null);
+  const restartRefreshAttempts = useRef(0);
 
   const latestRelease = releases[0];
-  const currentVersion = updateStatus.current_version || versionInfo.version || "-";
-  const latestVersion = latestRelease ? releaseTitle(latestRelease) : updateStatus.latest_version || "-";
-  const hasUpdate = Boolean(updateStatus.has_update);
-  const canInstallUpdate = Boolean(updateStatus.can_install || updateStatus.status === "downloaded");
-  const installingUpdate = updateStatus.status === "installing";
+  const displayUpdateStatus = restartPending
+    ? {
+        ...updateStatus,
+        status: "installing",
+        progress: Math.max(typeof updateStatus.progress === "number" ? updateStatus.progress : 0, 95),
+        error_message: "",
+      }
+    : updateStatus;
+  const currentVersion = displayUpdateStatus.current_version || versionInfo.version || "-";
+  const latestVersion = latestRelease ? releaseTitle(latestRelease) : displayUpdateStatus.latest_version || "-";
+  const hasUpdate = Boolean(displayUpdateStatus.has_update);
+  const canInstallUpdate = !restartPending && Boolean(displayUpdateStatus.can_install || displayUpdateStatus.status === "downloaded");
+  const installingUpdate = restartPending || displayUpdateStatus.status === "installing";
   const selectedRelease = useMemo(
     () =>
       releases.find((release, index) => {
@@ -1356,12 +1382,34 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
     [releaseModal, releases]
   );
 
-  const loadUpdateData = async (checkRemote = false) => {
+  function markSelfUpdateRestarting() {
+    setRestartPending(true);
+    setRepoError("");
+    setUpdateStatus((status) => ({
+      ...status,
+      status: "installing",
+      progress: Math.max(typeof status.progress === "number" ? status.progress : 0, 95),
+      error_message: "",
+    }));
+  }
+
+  function scheduleRestartRefresh(delayMs = 2500) {
+    if (restartRefreshTimer.current !== null) {
+      window.clearTimeout(restartRefreshTimer.current);
+    }
+    restartRefreshTimer.current = window.setTimeout(() => {
+      restartRefreshTimer.current = null;
+      void loadUpdateData(false, true);
+    }, delayMs);
+  }
+
+  const loadUpdateData = async (checkRemote = false, suppressRestartErrors = false) => {
     setChecking(checkRemote);
     setLoadingReleases(true);
     setRepoError("");
     const failures: string[] = [];
     let checkedStatus: UpdateStatus | null = null;
+    let statusLoaded = false;
     let autoDownloadStarted = false;
 
     if (checkRemote) {
@@ -1396,6 +1444,11 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
 
     if (statusResult.status === "fulfilled") {
       setUpdateStatus(apiData<UpdateStatus>(statusResult.value, {}));
+      statusLoaded = true;
+      if (restartPending || suppressRestartErrors) {
+        setRestartPending(false);
+        restartRefreshAttempts.current = 0;
+      }
     } else {
       failures.push(errorMessage(statusResult.reason));
     }
@@ -1429,7 +1482,17 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
       failures.push(errorMessage(componentConfigResult.reason));
     }
 
-    if (failures.length > 0) {
+    const restartFailures = suppressRestartErrors && failures.length > 0 && failures.every((message) => isTransientRestartError(message));
+    if (restartFailures) {
+      setRepoError("");
+      if (!statusLoaded) {
+        markSelfUpdateRestarting();
+        restartRefreshAttempts.current += 1;
+        if (restartRefreshAttempts.current <= 20) {
+          scheduleRestartRefresh(2500);
+        }
+      }
+    } else if (failures.length > 0) {
       setRepoError(failures[0]);
       if (checkRemote) showToast(`检查更新失败: ${failures[0]}`);
     } else if (checkRemote && autoDownloadStarted) {
@@ -1443,6 +1506,14 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
     setLoadingReleases(false);
     setChecking(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (restartRefreshTimer.current !== null) {
+        window.clearTimeout(restartRefreshTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     void loadUpdateData();
@@ -1514,8 +1585,17 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
         return;
       }
       showToast(payload.message || "更新安装已开始，服务将自动重启");
-      void loadUpdateData();
+      restartRefreshAttempts.current = 0;
+      markSelfUpdateRestarting();
+      scheduleRestartRefresh();
     } catch (err) {
+      if (isTransientRestartError(err)) {
+        showToast("更新安装已开始，服务正在重启");
+        restartRefreshAttempts.current = 0;
+        markSelfUpdateRestarting();
+        scheduleRestartRefresh();
+        return;
+      }
       showToast(`安装更新失败: ${errorMessage(err)}`);
     }
   };
@@ -1603,7 +1683,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
           <div className="space-y-1">
             <UpdateInfoTile label="当前版本" value={currentVersion} />
             <UpdateInfoTile label="最新版本" value={latestVersion} badge={hasUpdate ? "可更新" : undefined} />
-            <UpdateInfoTile label="最后检查" value={formatDateTime(updateStatus.last_check_time)} />
+            <UpdateInfoTile label="最后检查" value={formatDateTime(displayUpdateStatus.last_check_time)} />
             <UpdateInfoTile label="Go 版本" value={versionInfo.go_version || "-"} />
             <UpdateInfoTile label="构建平台" value={versionInfo.platform || "-"} />
             <UpdateInfoTile label="构建时间" value={versionInfo.build_time || "-"} />
@@ -1615,22 +1695,23 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
           <div className="flex items-center justify-between gap-4">
             <span className="text-xs text-muted-foreground">当前状态</span>
             <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-xs font-semibold text-foreground">
-              <span className={cn("h-1.5 w-1.5 rounded-full", updateStatus.status === "failed" ? "bg-destructive" : checking ? "bg-primary" : "bg-muted-foreground")} />
-              {statusLabel(updateStatus.status)}
+              <span className={cn("h-1.5 w-1.5 rounded-full", displayUpdateStatus.status === "failed" ? "bg-destructive" : checking || restartPending ? "bg-primary" : "bg-muted-foreground")} />
+              {statusLabel(displayUpdateStatus.status)}
             </span>
           </div>
-          {typeof updateStatus.progress === "number" && updateStatus.progress > 0 ? (
+          {typeof displayUpdateStatus.progress === "number" && displayUpdateStatus.progress > 0 ? (
             <div className="mt-4">
               <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                 <span>进度</span>
-                <span>{updateStatus.progress}%</span>
+                <span>{displayUpdateStatus.progress}%</span>
               </div>
               <div className="h-1.5 rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, updateStatus.progress))}%` }} />
+                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, displayUpdateStatus.progress))}%` }} />
               </div>
             </div>
           ) : null}
-          {updateStatus.error_message ? <div className="mt-3 text-xs text-destructive">{updateStatus.error_message}</div> : null}
+          {restartPending ? <div className="mt-3 text-xs text-muted-foreground">服务正在重启，页面短暂断开属于正常现象。</div> : null}
+          {!restartPending && displayUpdateStatus.error_message ? <div className="mt-3 text-xs text-destructive">{displayUpdateStatus.error_message}</div> : null}
         </Card>
 
         <Card title="操作" Icon={Download}>
@@ -1649,13 +1730,13 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
                 安装并重启
               </PrimaryButton>
             </div>
-            {updateStatus.effective_download_url && updateStatus.effective_download_url !== updateStatus.download_url ? (
+            {displayUpdateStatus.effective_download_url && displayUpdateStatus.effective_download_url !== displayUpdateStatus.download_url ? (
               <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                下载走加速: <span className="break-all font-mono text-foreground/80">{updateStatus.effective_download_url}</span>
+                下载走加速: <span className="break-all font-mono text-foreground/80">{displayUpdateStatus.effective_download_url}</span>
               </div>
             ) : null}
             <div className="border-t border-border/40 pt-3 text-xs text-muted-foreground">
-              最后检查: {formatDateTime(updateStatus.last_check_time)}
+              最后检查: {formatDateTime(displayUpdateStatus.last_check_time)}
             </div>
           </div>
         </Card>
