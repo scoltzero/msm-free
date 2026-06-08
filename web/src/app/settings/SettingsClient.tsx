@@ -1368,9 +1368,9 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
         error_message: "",
       }
     : updateStatus;
-  const currentVersion = displayUpdateStatus.current_version || versionInfo.version || "-";
-  const latestVersion = latestRelease ? releaseTitle(latestRelease) : displayUpdateStatus.latest_version || "-";
-  const hasUpdate = Boolean(displayUpdateStatus.has_update);
+  const currentVersion = versionInfo.version || "";
+  const latestVersion = latestRelease ? releaseTitle(latestRelease) : "";
+  const hasUpdate = Boolean(latestVersion) && Boolean(displayUpdateStatus.has_update);
   const canInstallUpdate = !restartPending && Boolean(displayUpdateStatus.can_install || displayUpdateStatus.status === "downloaded");
   const installingUpdate = restartPending || displayUpdateStatus.status === "installing";
   const selectedRelease = useMemo(
@@ -1405,7 +1405,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
 
   const loadUpdateData = async (checkRemote = false, suppressRestartErrors = false) => {
     setChecking(checkRemote);
-    setLoadingReleases(true);
+    if (checkRemote) setLoadingReleases(true);
     setRepoError("");
     const failures: string[] = [];
     let checkedStatus: UpdateStatus | null = null;
@@ -1430,7 +1430,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
     const [versionResult, statusResult, releasesResult, componentResult, configResult, componentConfigResult] = await Promise.allSettled([
       api<any>("/api/v1/version"),
       api<any>("/api/v1/update/status"),
-      api<any>("/api/v1/update/releases"),
+      checkRemote ? api<any>("/api/v1/update/releases") : Promise.resolve(null),
       api<any>("/api/v1/component-updates"),
       api<any>("/api/v1/update/config"),
       Promise.all(["mosdns", "mihomo", "zashboard"].map((component) => api<any>(`/api/v1/component-updates/${component}/config`))),
@@ -1453,10 +1453,12 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
       failures.push(errorMessage(statusResult.reason));
     }
 
-    if (releasesResult.status === "fulfilled") {
-      setReleases(apiList<ReleaseItem>(releasesResult.value, ["data", "items", "releases"]));
-    } else {
-      failures.push(errorMessage(releasesResult.reason));
+    if (checkRemote) {
+      if (releasesResult.status === "fulfilled") {
+        setReleases(apiList<ReleaseItem>(releasesResult.value, ["data", "items", "releases"]));
+      } else {
+        failures.push(errorMessage(releasesResult.reason));
+      }
     }
 
     if (componentResult.status === "fulfilled") {
@@ -1503,7 +1505,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
       showToast("已检查更新");
     }
 
-    setLoadingReleases(false);
+    if (checkRemote) setLoadingReleases(false);
     setChecking(false);
   };
 
@@ -1721,7 +1723,7 @@ function UpdateTab({ showToast }: { showToast: (message: string) => void }) {
                 <RefreshCw className={cn("h-3.5 w-3.5", checking && "animate-spin")} />
                 检查更新
               </OutlineButton>
-              <PrimaryButton onClick={downloadUpdate} disabled={checking || !hasUpdate || latestVersion === "-"} className="h-8 px-3 text-xs">
+              <PrimaryButton onClick={downloadUpdate} disabled={checking || !hasUpdate || !latestVersion} className="h-8 px-3 text-xs">
                 <Download className="h-3.5 w-3.5" />
                 下载更新
               </PrimaryButton>

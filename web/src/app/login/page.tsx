@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Lock, LogIn, Network, Server, Shield, User } from "lucide-react";
 import { LoginLogoShowcase } from "@/components/login/LoginLogoShowcase";
 import { useAuth } from "@/lib/auth";
+import { api, apiData } from "@/lib/api";
 
 const features = [
   { icon: Server, label: "DNS 服务" },
   { icon: Shield, label: "代理管理" },
   { icon: Network, label: "网络优化" },
 ];
-
-const releaseVersion = "v 0.2.2";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,6 +20,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [releaseVersion, setReleaseVersion] = useState("未知");
+
+  useEffect(() => {
+    let cancelled = false;
+    api<any>("/api/v1/version", { skipAuth: true })
+      .then((payload) => {
+        const version = apiData<{ version?: string }>(payload)?.version;
+        if (!cancelled && version) {
+          setReleaseVersion(`v ${version}`);
+        }
+      })
+      .catch(() => {
+        /* leave as 未知 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
