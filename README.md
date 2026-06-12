@@ -4,7 +4,7 @@
 
 `msf` 是一个面向 MosDNS + Mihomo 工作流的 MSM 风格管理面板重构版。项目目标是提供可自部署、可审计的 DNS 分流、透明代理、Mihomo 管理和 Unraid 插件体验。
 
-当前发布版本：`v0.3.0`
+当前发布版本：`v0.3.2`
 
 ## 功能概览
 
@@ -31,25 +31,25 @@
 GitHub Release：
 
 ```text
-https://github.com/scoltzero/msf/releases/tag/v0.3.0
+https://github.com/scoltzero/msf/releases/tag/v0.3.2
 ```
 
 Linux x86_64 安装包：
 
 ```text
-https://github.com/scoltzero/msf/releases/download/v0.3.0/msf-linux-amd64.tar.gz
+https://github.com/scoltzero/msf/releases/download/v0.3.2/msf-linux-amd64.tar.gz
 ```
 
 Linux ARM64 安装包：
 
 ```text
-https://github.com/scoltzero/msf/releases/download/v0.3.0/msf-linux-arm64.tar.gz
+https://github.com/scoltzero/msf/releases/download/v0.3.2/msf-linux-arm64.tar.gz
 ```
 
 Unraid 插件文件：
 
 ```text
-https://github.com/scoltzero/msf/releases/download/v0.3.0/msf.plg
+https://github.com/scoltzero/msf/releases/download/v0.3.2/msf.plg
 ```
 
 ## Linux 安装
@@ -58,20 +58,20 @@ https://github.com/scoltzero/msf/releases/download/v0.3.0/msf.plg
 
 ```bash
 curl -L -o msf-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msf/releases/download/v0.3.0/msf-linux-amd64.tar.gz
+  https://github.com/scoltzero/msf/releases/download/v0.3.2/msf-linux-amd64.tar.gz
 
 tar -xzf msf-linux-amd64.tar.gz -C /tmp
-sudo /tmp/msf-0.3.0-linux-amd64/install.sh
+sudo /tmp/msf-0.3.2-linux-amd64/install.sh
 ```
 
 ARM64 / aarch64 使用：
 
 ```bash
 curl -L -o msf-linux-arm64.tar.gz \
-  https://github.com/scoltzero/msf/releases/download/v0.3.0/msf-linux-arm64.tar.gz
+  https://github.com/scoltzero/msf/releases/download/v0.3.2/msf-linux-arm64.tar.gz
 
 tar -xzf msf-linux-arm64.tar.gz -C /tmp
-sudo /tmp/msf-0.3.0-linux-arm64/install.sh
+sudo /tmp/msf-0.3.2-linux-arm64/install.sh
 ```
 
 安装脚本会完成这些操作：
@@ -144,7 +144,7 @@ sudo ./uninstall.sh --purge
 在 Unraid WebGUI 中打开 **Plugins / Install Plugin**，填入插件地址：
 
 ```text
-https://github.com/scoltzero/msf/releases/download/v0.3.1/msf.plg
+https://github.com/scoltzero/msf/releases/download/v0.3.2/msf.plg
 ```
 
 安装完成后打开 **Settings / MSF Free**，进入轻量插件控制页，再点击打开 WebUI。完整管理界面运行在独立 WebUI 中，不嵌入 Unraid Settings 页面。
@@ -290,26 +290,26 @@ go run ./cmd/msf serve -c ./data -p 7777
 构建 Linux x86_64 压缩包：
 
 ```bash
-make package VERSION=0.3.0 GOOS=linux GOARCH=amd64
+make package VERSION=0.3.2 GOOS=linux GOARCH=amd64
 ```
 
 构建 Linux ARM64 压缩包：
 
 ```bash
-make package VERSION=0.3.0 GOOS=linux GOARCH=arm64
+make package VERSION=0.3.2 GOOS=linux GOARCH=arm64
 ```
 
 构建 Unraid 插件产物：
 
 ```bash
-make unraid VERSION=0.3.0 UNRAID_VERSION=0.3.0 GITHUB_REPO=scoltzero/msf RELEASE_TAG=v0.3.0
+make unraid VERSION=0.3.2 UNRAID_VERSION=0.3.2 GITHUB_REPO=scoltzero/msf RELEASE_TAG=v0.3.2
 ```
 
 构建产物：
 
 - `dist/msf-linux-amd64.tar.gz`
 - `dist/msf-linux-arm64.tar.gz`
-- `dist/unraid/msf-0.3.0-x86_64-1.txz`
+- `dist/unraid/msf-0.3.2-x86_64-1.txz`
 - `dist/unraid/msf.plg`
 - `msf.plg`
 

@@ -9,6 +9,8 @@ import {
   Circle,
   Cpu,
   DownloadCloud,
+  Eye,
+  EyeOff,
   Globe2,
   KeyRound,
   Languages,
@@ -26,7 +28,6 @@ import {
   Trash2,
   UserRound,
   Wifi,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -64,6 +65,11 @@ interface PrivilegeInfo {
 interface SubscriptionRow {
   tag: string;
   url: string;
+}
+
+interface SetupValidationIssue {
+  step: number;
+  message: string;
 }
 
 const defaultForm = {
@@ -236,6 +242,44 @@ function Field({
       {children}
       {hint && <span className="text-xs leading-5 text-muted-foreground">{hint}</span>}
     </label>
+  );
+}
+
+function SetupPasswordInput({
+  value,
+  placeholder,
+  show,
+  onChange,
+  onToggle,
+}: {
+  value: string;
+  placeholder: string;
+  show: boolean;
+  onChange: (value: string) => void;
+  onToggle: () => void;
+}) {
+  const label = show ? "隐藏密码" : "显示密码";
+
+  return (
+    <div className="relative">
+      <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        className={cn(inputClass, "pl-9 pr-11")}
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        onClick={onToggle}
+        className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
   );
 }
 
@@ -764,6 +808,8 @@ export function SetupPage() {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [validationIssue, setValidationIssue] = useState<SetupValidationIssue | null>(null);
+  const [showSetupPasswords, setShowSetupPasswords] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
   const [downloadIntroStage, setDownloadIntroStage] = useState<SetupDownloadIntroStage>(2);
   const [downloadSteps, setDownloadSteps] = useState<SetupDownloadStep[]>([]);
@@ -848,10 +894,16 @@ export function SetupPage() {
   };
 
   const validateAll = () => {
-    const errors: Array<{ step: number; message: string }> = [];
+    const errors: SetupValidationIssue[] = [];
     if (form.username.trim().length < 2) errors.push({ step: 1, message: "管理员用户名至少需要 2 个字符" });
-    if (form.password.length < 8) errors.push({ step: 1, message: "管理员密码至少需要 8 位" });
-    if (form.password !== form.confirmPassword) errors.push({ step: 1, message: "两次密码不一致" });
+    if (form.password.length === 0) {
+      errors.push({ step: 1, message: "请输入管理员密码" });
+    }
+    if (form.confirmPassword.length === 0) {
+      errors.push({ step: 1, message: "请再次输入管理员密码" });
+    } else if (form.password !== form.confirmPassword) {
+      errors.push({ step: 1, message: "两次密码不一致" });
+    }
     const port = Number(form.webPort);
     if (!Number.isInteger(port) || port < 1 || port > 65535) errors.push({ step: 2, message: "Web 端口必须在 1-65535 之间" });
     if (!form.selected_interface) errors.push({ step: 3, message: "请选择物理网卡" });
@@ -941,8 +993,9 @@ export function SetupPage() {
   const completeInitialize = async () => {
     const errors = validateAll();
     if (errors.length > 0) {
-      setMessage(errors[0].message);
-      setStep(errors[0].step);
+      const issue = errors[0];
+      setMessage(issue.message);
+      setValidationIssue(issue);
       return;
     }
     setBusy(true);
@@ -989,6 +1042,7 @@ export function SetupPage() {
 
   const go = (nextStep: number) => {
     setMessage("");
+    setValidationIssue(null);
     setStep(Math.max(0, Math.min(steps.length - 1, nextStep)));
   };
 
@@ -1117,28 +1171,22 @@ export function SetupPage() {
                     </div>
                   </Field>
                   <Field label="密码">
-                    <div className="relative">
-                      <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        className={cn(inputClass, "pl-9")}
-                        type="password"
-                        placeholder="请输入密码（至少8位）"
-                        value={form.password}
-                        onChange={(event) => update("password", event.target.value)}
-                      />
-                    </div>
+                    <SetupPasswordInput
+                      value={form.password}
+                      placeholder="请输入密码"
+                      show={showSetupPasswords}
+                      onChange={(value) => update("password", value)}
+                      onToggle={() => setShowSetupPasswords((current) => !current)}
+                    />
                   </Field>
                   <Field label="确认密码">
-                    <div className="relative">
-                      <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        className={cn(inputClass, "pl-9")}
-                        type="password"
-                        placeholder="请再次输入密码"
-                        value={form.confirmPassword}
-                        onChange={(event) => update("confirmPassword", event.target.value)}
-                      />
-                    </div>
+                    <SetupPasswordInput
+                      value={form.confirmPassword}
+                      placeholder="请再次输入密码"
+                      show={showSetupPasswords}
+                      onChange={(value) => update("confirmPassword", value)}
+                      onToggle={() => setShowSetupPasswords((current) => !current)}
+                    />
                   </Field>
                 </div>
               </div>
@@ -1619,6 +1667,42 @@ export function SetupPage() {
           )}
         </div>
       </main>
+      {validationIssue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="setup-validation-title"
+            aria-describedby="setup-validation-description"
+            className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 text-foreground shadow-apple-lg"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                <AlertCircle className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="setup-validation-title" className="text-base font-semibold text-foreground">
+                  初始化配置需要修改
+                </h2>
+                <p id="setup-validation-description" className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {steps[validationIssue.step]?.title || "当前步骤"}：{validationIssue.message}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <SetupPageButton
+                variant="primary"
+                onClick={() => {
+                  setValidationIssue(null);
+                  setStep(validationIssue.step);
+                }}
+              >
+                去修改
+              </SetupPageButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

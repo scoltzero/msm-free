@@ -24,7 +24,7 @@ Then open `http://localhost:7777`.
 
 ```bash
 curl -L -o msf-linux-amd64.tar.gz \
-  https://github.com/scoltzero/msf/releases/download/v0.3.0/msf-linux-amd64.tar.gz
+  https://github.com/scoltzero/msf/releases/download/v0.3.2/msf-linux-amd64.tar.gz
 tar -xzf msf-linux-amd64.tar.gz -C /tmp
 sudo /tmp/msf-*-linux-amd64/install.sh
 ```
@@ -87,7 +87,7 @@ See [Docker deployment](docs/docker.md) for the full `docker run` command, clean
 
 ```bash
 make build
-make unraid VERSION=0.3.0 UNRAID_VERSION=0.3.0 GITHUB_REPO=scoltzero/msf RELEASE_TAG=v0.3.0
+make unraid VERSION=0.3.2 UNRAID_VERSION=0.3.2 GITHUB_REPO=scoltzero/msf RELEASE_TAG=v0.3.2
 ```
 
 The generated artifacts are:

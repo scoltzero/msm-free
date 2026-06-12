@@ -13,12 +13,12 @@ Update and remove msf from the Unraid Plugins page (not via the in-app updater).
 <Project>https://github.com/scoltzero/msf</Project>
 <Category>Network:Management Tools:System Plugins:</Category>
 <Beta>False</Beta>
-<Date>2026-06-11</Date>
+<Date>2026-06-12</Date>
 <Changes>
-### msf 0.3.1
-- Online MosDNS / Mihomo / Zashboard downloads now require and verify GitHub release asset SHA-256 digests before install.
-- Local component uploads stay available for offline use and are shown as local-upload, not project-verified downloads.
-- Removed live sample subscriptions and proxy nodes from default config and replaced UI/rule examples with inert placeholders.
-- The Unraid Settings entry remains a lightweight plugin control page; the full app runs on the separate msf WebUI.
+### msf 0.3.2
+- Fixed MosDNS / Mihomo / Zashboard status checks resetting same-digest verified installs back to pending verification.
+- Preserved verified digest, verified state, and verification source when no update is available and the asset digest is unchanged.
+- Improved setup wizard validation with a modal that jumps to the step requiring changes.
+- Setup administrator passwords now require only a non-empty value and matching confirmation; no minimum length is enforced.
 </Changes>
 </Plugin>

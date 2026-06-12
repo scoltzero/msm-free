@@ -13,10 +13,10 @@
   <CHANGES>
     <![CDATA[
 ### msf __PLUGIN_VERSION__
-- 在线安装 MosDNS、Mihomo、Zashboard 时强制读取并校验 GitHub Release API asset SHA-256 digest，通过后才解压/覆盖。
-- 本地上传核心仍支持离线安装，但状态会标记为 local-upload，不会宣称由项目校验。
-- 默认初始化配置不再包含真实订阅链接、真实节点或真实 IP，示例数据统一替换为 inert placeholders。
-- Unraid Settings 入口保留为轻量插件控制页，完整管理界面通过独立 msf WebUI 打开。
+- 修复 MosDNS、Mihomo、Zashboard 在线安装校验成功后，后续检查可能回到“待安装校验”的状态显示问题。
+- 组件无更新且 GitHub asset digest 未变化时，会保留 verified digest、verified 状态和 verification source。
+- 初始化向导提交校验改为弹窗提示并跳转到需要修改的步骤。
+- 初始化管理员密码不再强制最少 8 位，只要求非空且两次输入一致。
     ]]>
   </CHANGES>
 
