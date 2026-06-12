@@ -412,6 +412,7 @@ func (a *App) handleComponentUpdateCheck(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	currentVersion := firstNonEmpty(componentStateString(state, "current_version_detail"), componentStateString(state, "current_version"))
 	hasUpdate := componentHasUpdate(currentVersion, latestVersion)
+	verifiedDigest, verified := preservedComponentVerification(state, downloadDigest, hasUpdate)
 	displayVersion, detailVersion := componentDisplayCurrentVersion(component, currentVersion, latestVersion)
 	state["current_version"] = displayVersion
 	if detailVersion != "" {
@@ -422,8 +423,8 @@ func (a *App) handleComponentUpdateCheck(w http.ResponseWriter, r *http.Request)
 	state["latest_version"] = latestVersion
 	state["download_url"] = downloadURL
 	state["download_digest"] = downloadDigest
-	state["verified_digest"] = ""
-	state["verified"] = false
+	state["verified_digest"] = verifiedDigest
+	state["verified"] = verified
 	state["verification_source"] = downloadAsset.VerificationSource
 	state["release_body"] = remote.Body
 	state["has_update"] = hasUpdate
@@ -434,8 +435,8 @@ func (a *App) handleComponentUpdateCheck(w http.ResponseWriter, r *http.Request)
 	state["last_check_time"] = now
 	_, _ = a.DB.Exec(`insert into component_update_info(component,current_version,latest_version,has_update,download_url,download_digest,verified_digest,verified,verification_source,release_body,status,progress,error_message,last_check_time,created_at,updated_at)
 		values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-		on conflict(component) do update set current_version=excluded.current_version,latest_version=excluded.latest_version,has_update=excluded.has_update,download_url=excluded.download_url,download_digest=excluded.download_digest,verified_digest='',verified=false,verification_source=excluded.verification_source,release_body=excluded.release_body,status='checked',progress=0,error_message='',last_check_time=excluded.last_check_time,updated_at=excluded.updated_at`,
-		component, currentVersion, latestVersion, hasUpdate, downloadURL, downloadDigest, "", false, downloadAsset.VerificationSource, remote.Body, "checked", 0, "", now, now, now)
+		on conflict(component) do update set current_version=excluded.current_version,latest_version=excluded.latest_version,has_update=excluded.has_update,download_url=excluded.download_url,download_digest=excluded.download_digest,verified_digest=excluded.verified_digest,verified=excluded.verified,verification_source=excluded.verification_source,release_body=excluded.release_body,status='checked',progress=0,error_message='',last_check_time=excluded.last_check_time,updated_at=excluded.updated_at`,
+		component, currentVersion, latestVersion, hasUpdate, downloadURL, downloadDigest, verifiedDigest, verified, downloadAsset.VerificationSource, remote.Body, "checked", 0, "", now, now, now)
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "data": state})
 }
 
@@ -786,6 +787,49 @@ func componentStateString(state map[string]any, key string) string {
 		return ""
 	}
 	return out
+}
+
+func componentStateBool(state map[string]any, key string) bool {
+	value, ok := state[key]
+	if !ok || value == nil {
+		return false
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case int:
+		return v != 0
+	case int64:
+		return v != 0
+	case float64:
+		return v != 0
+	case string:
+		v = strings.TrimSpace(strings.ToLower(v))
+		return v == "true" || v == "1" || v == "yes"
+	default:
+		return false
+	}
+}
+
+func preservedComponentVerification(state map[string]any, downloadDigest string, hasUpdate bool) (string, bool) {
+	downloadDigest = strings.TrimSpace(downloadDigest)
+	if hasUpdate || downloadDigest == "" || !componentStateBool(state, "verified") {
+		return "", false
+	}
+	if componentStateString(state, "verification_source") != componentVerificationSourceGitHubAssetDigest {
+		return "", false
+	}
+	if componentStateString(state, "download_digest") != downloadDigest {
+		return "", false
+	}
+	verifiedDigest := componentStateString(state, "verified_digest")
+	if verifiedDigest == "" {
+		verifiedDigest = downloadDigest
+	}
+	if verifiedDigest != downloadDigest {
+		return "", false
+	}
+	return verifiedDigest, true
 }
 
 func componentDisplayCurrentVersion(component, current, latest string) (string, string) {

@@ -811,6 +811,32 @@ func TestComponentUpdateStateExposesVerificationFields(t *testing.T) {
 	}
 }
 
+func TestPreservedComponentVerification(t *testing.T) {
+	digest := testSHA256Digest([]byte("dist.zip"))
+	state := map[string]any{
+		"download_digest":     digest,
+		"verified_digest":     digest,
+		"verified":            true,
+		"verification_source": componentVerificationSourceGitHubAssetDigest,
+	}
+	verifiedDigest, verified := preservedComponentVerification(state, digest, false)
+	if !verified || verifiedDigest != digest {
+		t.Fatalf("expected same digest verification to be preserved, got verified=%v digest=%q", verified, verifiedDigest)
+	}
+
+	if verifiedDigest, verified := preservedComponentVerification(state, digest, true); verified || verifiedDigest != "" {
+		t.Fatalf("has_update should clear verification, got verified=%v digest=%q", verified, verifiedDigest)
+	}
+	if verifiedDigest, verified := preservedComponentVerification(state, testSHA256Digest([]byte("changed.zip")), false); verified || verifiedDigest != "" {
+		t.Fatalf("changed download digest should clear verification, got verified=%v digest=%q", verified, verifiedDigest)
+	}
+
+	state["verification_source"] = componentVerificationSourceLocalUpload
+	if verifiedDigest, verified := preservedComponentVerification(state, digest, false); verified || verifiedDigest != "" {
+		t.Fatalf("local upload should not be promoted to project verification, got verified=%v digest=%q", verified, verifiedDigest)
+	}
+}
+
 func TestComponentUpdateUploadInstallsZashboardZip(t *testing.T) {
 	app := newTestApp(t)
 	token := tokenForRole(t, app, "admin")
