@@ -1686,6 +1686,15 @@ func TestMihomoProviderConfigManagementCreatesHistory(t *testing.T) {
 	put := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/proxy-providers/airport", token, map[string]any{
 		"url":      "https://example.com/sub.yaml",
 		"interval": 3600,
+		"override": map[string]any{
+			"dialer-proxy": "前置代理",
+		},
+		"health-check": map[string]any{
+			"enable":   true,
+			"url":      "http://detectportal.firefox.com/success.txt",
+			"interval": 120,
+		},
+		"filter": "香港|HK",
 	})
 	if put.Code != http.StatusOK || !strings.Contains(put.Body.String(), `"restart_required":false`) || !strings.Contains(put.Body.String(), `"mode":"custom"`) {
 		t.Fatalf("proxy provider put status=%d body=%s", put.Code, put.Body.String())
@@ -1694,8 +1703,28 @@ func TestMihomoProviderConfigManagementCreatesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(cfg), "airport:") || !strings.Contains(string(cfg), "https://example.com/sub.yaml") {
+	if !strings.Contains(string(cfg), "airport:") || !strings.Contains(string(cfg), "https://example.com/sub.yaml") || !strings.Contains(string(cfg), "dialer-proxy: 前置代理") {
 		t.Fatalf("proxy provider not persisted:\n%s", string(cfg))
+	}
+	putURLOnly := requestJSON(t, app, http.MethodPut, "/api/v1/mihomo/proxy-providers/airport", token, map[string]any{
+		"url": "https://example.com/sub2.yaml",
+	})
+	if putURLOnly.Code != http.StatusOK {
+		t.Fatalf("proxy provider url-only put status=%d body=%s", putURLOnly.Code, putURLOnly.Body.String())
+	}
+	cfg, err = os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfgText := string(cfg)
+	for _, want := range []string{"https://example.com/sub2.yaml", "dialer-proxy: 前置代理", "health-check:", "filter: 香港|HK"} {
+		if !strings.Contains(cfgText, want) {
+			t.Fatalf("provider advanced field was not preserved, missing %q:\n%s", want, cfgText)
+		}
+	}
+	chains := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/proxy-providers", token, nil)
+	if chains.Code != http.StatusOK || !strings.Contains(chains.Body.String(), `"dialer_proxy":"前置代理"`) || !strings.Contains(chains.Body.String(), `"proxy-providers.airport.override.dialer-proxy"`) {
+		t.Fatalf("proxy provider chains missing: status=%d body=%s", chains.Code, chains.Body.String())
 	}
 	update := requestJSON(t, app, http.MethodPost, "/api/v1/mihomo/proxy-providers/airport/update", token, nil)
 	if update.Code != http.StatusOK || !strings.Contains(update.Body.String(), `"healthcheck":true`) {
@@ -1723,11 +1752,22 @@ func TestMihomoProviderConfigManagementCreatesHistory(t *testing.T) {
 	if del.Code != http.StatusOK || !strings.Contains(del.Body.String(), `"restart_required":false`) {
 		t.Fatalf("proxy provider delete status=%d body=%s", del.Code, del.Body.String())
 	}
+	cfg, err = os.ReadFile(filepath.Join(app.DataDir, "configs/mihomo/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(cfg), "airport:") {
+		t.Fatalf("proxy provider delete should remove full provider config:\n%s", string(cfg))
+	}
 }
 
 func TestMihomoCustomConfigModeProtectsGeneratedConfigAndRestoresBackup(t *testing.T) {
 	app := newTestApp(t)
 	token := tokenForRole(t, app, "admin")
+	template := requestJSON(t, app, http.MethodGet, "/api/v1/mihomo/config/custom-template", token, nil)
+	if template.Code != http.StatusOK || !strings.Contains(template.Body.String(), "override:") || !strings.Contains(template.Body.String(), "dialer-proxy:") {
+		t.Fatalf("custom template should include chain proxy example: status=%d body=%s", template.Code, template.Body.String())
+	}
 	original, err := app.readTextFile(mihomoActiveConfigRelPath)
 	if err != nil {
 		t.Fatal(err)

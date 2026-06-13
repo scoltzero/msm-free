@@ -782,7 +782,8 @@ func (a *App) mihomoProxyProvidersPayload() map[string]any {
 	}
 	runtimeItems := runtimeProviderItems(runtime, "proxy")
 	items := mergeProviders(configProviders, runtime, "proxy")
-	return map[string]any{"proxy-providers": cfg["proxy-providers"], "items": items, "providers": items, "runtime": runtime, "runtime_items": runtimeItems, "runtime_providers": runtimeItems}
+	chains := mihomoChainPayload(cfg)
+	return map[string]any{"proxy-providers": cfg["proxy-providers"], "items": items, "providers": items, "runtime": runtime, "runtime_items": runtimeItems, "runtime_providers": runtimeItems, "chains": chains}
 }
 
 func (a *App) mihomoRuleProvidersPayload() map[string]any {
@@ -796,6 +797,76 @@ func (a *App) mihomoRuleProvidersPayload() map[string]any {
 	runtimeItems := runtimeProviderItems(runtime, "rule")
 	items := mergeProviders(configProviders, runtime, "rule")
 	return map[string]any{"rule-providers": cfg["rule-providers"], "items": items, "providers": items, "runtime": runtime, "runtime_items": runtimeItems, "runtime_providers": runtimeItems}
+}
+
+func mihomoChainPayload(cfg map[string]any) map[string]any {
+	providerChains := providerChainRows(cfg["proxy-providers"])
+	proxyChains := proxyChainRows(cfg["proxies"])
+	return map[string]any{
+		"provider_chains": providerChains,
+		"proxy_chains":    proxyChains,
+		"total":           len(providerChains) + len(proxyChains),
+	}
+}
+
+func providerChainRows(raw any) []map[string]any {
+	providers := normalizeConfigProviders(raw)
+	names := make([]string, 0, len(providers))
+	for name := range providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	rows := make([]map[string]any, 0)
+	for _, name := range names {
+		override, ok := providers[name]["override"].(map[string]any)
+		if !ok {
+			continue
+		}
+		dialerProxy := strings.TrimSpace(stringMapValue(override, "dialer-proxy"))
+		if dialerProxy == "" {
+			dialerProxy = strings.TrimSpace(stringMapValue(override, "dialer_proxy"))
+		}
+		if dialerProxy == "" {
+			continue
+		}
+		rows = append(rows, map[string]any{
+			"kind":          "provider",
+			"name":          name,
+			"dialer_proxy":  dialerProxy,
+			"dialer-proxy":  dialerProxy,
+			"source":        "proxy-providers." + name + ".override.dialer-proxy",
+			"provider_type": stringMapValue(providers[name], "type"),
+		})
+	}
+	return rows
+}
+
+func proxyChainRows(raw any) []map[string]any {
+	rows := make([]map[string]any, 0)
+	for _, item := range anySlice(raw) {
+		proxy, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name := strings.TrimSpace(stringMapValue(proxy, "name"))
+		dialerProxy := strings.TrimSpace(stringMapValue(proxy, "dialer-proxy"))
+		if dialerProxy == "" {
+			dialerProxy = strings.TrimSpace(stringMapValue(proxy, "dialer_proxy"))
+		}
+		if name == "" || dialerProxy == "" {
+			continue
+		}
+		rows = append(rows, map[string]any{
+			"kind":         "proxy",
+			"name":         name,
+			"type":         stringMapValue(proxy, "type"),
+			"dialer_proxy": dialerProxy,
+			"dialer-proxy": dialerProxy,
+			"source":       "proxies[].dialer-proxy",
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool { return stringMapValue(rows[i], "name") < stringMapValue(rows[j], "name") })
+	return rows
 }
 
 func (a *App) handleMihomoProxyProviderGet(w http.ResponseWriter, r *http.Request) {
@@ -868,7 +939,8 @@ func (a *App) writeMihomoProviderUpsert(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	providerName := firstNonEmpty(name, stringMapValue(req, "name"), stringMapValue(req, "tag"))
-	provider, err := normalizeProviderRequest(providerName, req, section)
+	existing := normalizeConfigProviders(a.mihomoConfigMap()[section])[providerName]
+	provider, err := normalizeProviderRequest(providerName, req, section, existing)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
@@ -929,7 +1001,7 @@ func (a *App) upsertMihomoProvider(section, name string, provider map[string]any
 	return a.writeMihomoConfigMap(cfg)
 }
 
-func normalizeProviderRequest(name string, req map[string]any, section string) (map[string]any, error) {
+func normalizeProviderRequest(name string, req map[string]any, section string, existing map[string]any) (map[string]any, error) {
 	raw := firstNonEmpty(stringMapValue(req, "value"), stringMapValue(req, "subscription"), stringMapValue(req, "input"))
 	if raw != "" && stringMapValue(req, "url") == "" {
 		tag, u := parseTaggedURL(raw)
@@ -941,11 +1013,13 @@ func normalizeProviderRequest(name string, req map[string]any, section string) (
 	if name == "" {
 		return nil, fmt.Errorf("provider name required")
 	}
-	u := strings.TrimSpace(stringMapValue(req, "url"))
-	if u == "" {
-		return nil, fmt.Errorf("provider url required")
-	}
 	provider := map[string]any{}
+	for k, v := range existing {
+		if k == "name" || k == "runtime" || k == "source" || k == "provider_type" {
+			continue
+		}
+		provider[k] = v
+	}
 	for k, v := range req {
 		if k == "name" || k == "tag" || k == "value" || k == "subscription" || k == "input" {
 			continue
@@ -955,8 +1029,10 @@ func normalizeProviderRequest(name string, req map[string]any, section string) (
 	if provider["type"] == nil {
 		provider["type"] = "http"
 	}
-	if provider["url"] == nil {
-		provider["url"] = u
+	providerType := strings.ToLower(strings.TrimSpace(fmt.Sprint(provider["type"])))
+	u := strings.TrimSpace(stringMapValue(provider, "url"))
+	if providerType != "file" && u == "" {
+		return nil, fmt.Errorf("provider url required")
 	}
 	if provider["path"] == nil {
 		dir := "proxy_providers"
@@ -973,6 +1049,9 @@ func normalizeProviderRequest(name string, req map[string]any, section string) (
 			}
 		}
 		provider["path"] = filepath.ToSlash(filepath.Join("./"+dir, sanitizeProviderName(name)+ext))
+	}
+	if providerType == "file" && strings.TrimSpace(stringMapValue(provider, "path")) == "" {
+		return nil, fmt.Errorf("provider path required")
 	}
 	if provider["interval"] == nil {
 		provider["interval"] = 86400

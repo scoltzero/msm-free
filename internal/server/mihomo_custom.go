@@ -560,8 +560,35 @@ func (a *App) mihomoCustomTemplateContent() string {
 # 2. 您可以自由修改 proxy-groups、proxy-providers、rule-providers、rules。
 # 3. 如果设置 secret，MSF 会从配置中读取它并用于连接 Mihomo 控制器。
 # 4. 保存后 MSF 会备份旧配置并重启 Mihomo。
+#
+# 链式代理示例：让订阅里的节点通过“前置代理”拨出。
+# 不要直接取消整段注释；请把 override 加到实际使用的 proxy-providers 项里。
+# proxy-providers:
+#   mysub:
+#     type: http
+#     url: https://example.com/sub.yaml
+#     path: ./proxy_providers/mysub.yaml
+#     override:
+#       dialer-proxy: 前置代理
+#
+# proxy-groups:
+#   - name: 前置代理
+#     type: select
+#     proxies:
+#       - DIRECT
+#       - transit-node
+#
+# 单节点链式代理示例：
+# proxies:
+#   - name: exit-node
+#     type: ss
+#     server: exit.example.com
+#     port: 443
+#     cipher: aes-128-gcm
+#     password: password
+#     dialer-proxy: 前置代理
 
-`, "\n") + "\n" + body
+	`, "\n") + "\n" + body
 }
 
 func validateMihomoConfigContent(content string) mihomoConfigValidation {

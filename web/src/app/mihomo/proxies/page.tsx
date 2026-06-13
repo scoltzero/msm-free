@@ -4,7 +4,9 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import {
   ChevronDown,
   ChevronUp,
+  Copy,
   Gauge,
+  GitBranch,
   Loader2,
   Plus,
   RefreshCw,
@@ -38,6 +40,23 @@ const FALLBACK_ICONS: Record<string, string> = {
   game: ICON("Game"),
   ai: ICON("AI"),
 };
+
+const CHAIN_PROXY_EXAMPLE = `# 链式代理示例：让订阅里的节点通过“前置代理”拨出
+proxy-providers:
+  mysub:
+    type: http
+    url: https://example.com/sub.yaml
+    path: ./proxy_providers/mysub.yaml
+    override:
+      dialer-proxy: 前置代理
+
+proxy-groups:
+  - name: 前置代理
+    type: select
+    proxies:
+      - DIRECT
+      - transit-node
+`;
 
 interface Node {
   name: string;
@@ -73,6 +92,8 @@ interface Provider {
   expire?: string;
   extra?: string;
   updated: string;
+  chainDialerProxy?: string;
+  chainSource?: string;
 }
 
 interface ProviderSource {
@@ -95,6 +116,24 @@ interface RuntimeStats {
   uploadTotal: number;
   downloadTotal: number;
   mode: string;
+}
+
+interface ChainRecord {
+  kind: "provider" | "proxy";
+  name: string;
+  dialerProxy: string;
+  source: string;
+  type?: string;
+}
+
+interface ChainRecords {
+  providerChains: ChainRecord[];
+  proxyChains: ChainRecord[];
+}
+
+interface ChainTarget {
+  label: string;
+  tone: "ok" | "warning";
 }
 
 interface ProxyPageSettings {
@@ -274,6 +313,40 @@ function arrayValue(value: unknown): any[] {
   return Array.isArray(value) ? value : [];
 }
 
+function objectValue(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
+function chainDialerProxyFromProvider(row: any) {
+  const override = objectValue(row?.override || row?.raw?.override);
+  return stringValue(override["dialer-proxy"] || override.dialer_proxy).trim();
+}
+
+function normalizeChainRecord(row: any, kind: ChainRecord["kind"]): ChainRecord | null {
+  const name = stringValue(row?.name).trim();
+  const dialerProxy = stringValue(row?.dialer_proxy || row?.["dialer-proxy"]).trim();
+  if (!name || !dialerProxy) return null;
+  return {
+    kind,
+    name,
+    dialerProxy,
+    source: stringValue(row?.source || (kind === "provider" ? `proxy-providers.${name}.override.dialer-proxy` : "proxies[].dialer-proxy")),
+    type: stringValue(row?.type || row?.provider_type),
+  };
+}
+
+function normalizeChainRecords(payload: any): ChainRecords {
+  const data = apiData<any>(payload, payload || {});
+  const chains = data?.chains || data || {};
+  const providerChains = apiList<any>(chains, ["provider_chains", "providerChains", "providers"])
+    .map((row) => normalizeChainRecord(row, "provider"))
+    .filter(Boolean) as ChainRecord[];
+  const proxyChains = apiList<any>(chains, ["proxy_chains", "proxyChains", "proxies"])
+    .map((row) => normalizeChainRecord(row, "proxy"))
+    .filter(Boolean) as ChainRecord[];
+  return { providerChains, proxyChains };
+}
+
 function fallbackIcon(name: string, type = "") {
   const key = `${name} ${type}`.toLowerCase();
   if (key.includes("direct")) return FALLBACK_ICONS.direct;
@@ -430,6 +503,7 @@ function normalizeProviders(data: any): Provider[] {
     const proxies = arrayValue(item.proxies || item.runtime?.proxies);
     const nodes = proxies.map((proxy) => normalizeNode(proxy)).filter((proxy) => proxy.name);
     const sub = providerSubscriptionInfo(item);
+    const chainDialerProxy = chainDialerProxyFromProvider(item);
     const totalNodes = nodes.length;
     const alive = nodes.filter((proxy) => proxy.alive).length;
     const totalQuota = sub.total;
@@ -445,6 +519,8 @@ function normalizeProviders(data: any): Provider[] {
       percent,
       expire: formatExpire(sub.expire),
       updated: formatUpdated(item.updatedAt || item.updated_at || item.runtime?.updatedAt || item.runtime?.updated_at),
+      chainDialerProxy: chainDialerProxy || undefined,
+      chainSource: chainDialerProxy ? `proxy-providers.${stringValue(item.name)}.override.dialer-proxy` : undefined,
     };
   }).sort((a, b) => a.name.localeCompare(b.name, "zh"));
 }
@@ -744,6 +820,127 @@ function ProxySettingsModal({
   );
 }
 
+function chainTargetBadgeClass(target: ChainTarget) {
+  return target.tone === "ok"
+    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+    : "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+}
+
+function ChainRows({
+  rows,
+  emptyText,
+  targetFor,
+}: {
+  rows: ChainRecord[];
+  emptyText: string;
+  targetFor: (name: string) => ChainTarget;
+}) {
+  if (rows.length === 0) {
+    return <div className="rounded-lg border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">{emptyText}</div>;
+  }
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => {
+        const target = targetFor(row.dialerProxy);
+        return (
+          <div key={`${row.kind}-${row.name}-${row.source}`} className="rounded-lg border border-border/60 bg-background p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-sm text-foreground">{row.name}</span>
+              {row.type && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{row.type}</span>}
+              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", chainTargetBadgeClass(target))}>{target.label}</span>
+            </div>
+            <div className="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-[8rem_1fr]">
+              <span>前置代理</span>
+              <span className="min-w-0 break-all font-mono text-foreground">{row.dialerProxy}</span>
+              <span>配置来源</span>
+              <span className="min-w-0 break-all font-mono">{row.source}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChainProxyModal({
+  providerChains,
+  proxyChains,
+  targetFor,
+  onClose,
+  onOpenConfig,
+  onCopyExample,
+}: {
+  providerChains: ChainRecord[];
+  proxyChains: ChainRecord[];
+  targetFor: (name: string) => ChainTarget;
+  onClose: () => void;
+  onOpenConfig: () => void;
+  onCopyExample: () => void;
+}) {
+  const empty = providerChains.length === 0 && proxyChains.length === 0;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl max-h-[86vh] overflow-hidden rounded-xl border border-border bg-card shadow-apple-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">链式代理</h2>
+            <p className="mt-1 text-xs text-muted-foreground">只读检测结果，配置请在专业配置中编辑</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+            title="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(86vh-132px)] space-y-5 overflow-y-auto px-5 py-4">
+          {empty && (
+            <div className="rounded-lg border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
+              未检测到链式代理配置
+            </div>
+          )}
+          <section className="space-y-2.5">
+            <h3 className="text-sm font-semibold text-foreground">订阅批量链式代理</h3>
+            <ChainRows rows={providerChains} emptyText="没有检测到 proxy-providers.override.dialer-proxy" targetFor={targetFor} />
+          </section>
+          <section className="space-y-2.5">
+            <h3 className="text-sm font-semibold text-foreground">单节点链式代理</h3>
+            <ChainRows rows={proxyChains} emptyText="没有检测到顶层 proxies[].dialer-proxy" targetFor={targetFor} />
+          </section>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-5 py-3">
+          <button
+            type="button"
+            onClick={onCopyExample}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Copy className="h-4 w-4" />
+            复制链式代理示例
+          </button>
+          <button
+            type="button"
+            onClick={onOpenConfig}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Settings2 className="h-4 w-4" />
+            打开专业配置
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function nodeDelayBadgeClass(node: Node, settings: ProxyPageSettings, active: boolean) {
   if (active) return "bg-primary-foreground/20 text-primary-foreground";
   if (!node.alive || node.delay <= 0) return "bg-muted text-muted-foreground";
@@ -848,12 +1045,14 @@ export default function MihomoProxiesPage() {
   const [loading, setLoading] = useState(true);
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showChainModal, setShowChainModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [collapseVersion, setCollapseVersion] = useState(0);
   const [sources, setSources] = useState<ProviderSource[]>([]);
   const [groupDrafts, setGroupDrafts] = useState<ProxyGroupDraft[]>([]);
   const [loadedSourceNames, setLoadedSourceNames] = useState<Set<string>>(new Set());
   const [runtimeStats, setRuntimeStats] = useState<RuntimeStats>(EMPTY_STATS);
+  const [chainRecords, setChainRecords] = useState<ChainRecords>({ providerChains: [], proxyChains: [] });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -869,6 +1068,7 @@ export default function MihomoProxiesPage() {
       setGroups(normalized.groups);
       setNodes(normalized.nodes);
       setProviders(normalizeProviders(providerData));
+      setChainRecords(normalizeChainRecords(providerData));
       if (overviewPayload) {
         const stats = normalizeStats(overviewPayload);
         setRuntimeStats(stats);
@@ -960,6 +1160,18 @@ export default function MihomoProxiesPage() {
   }, [providers, searchTerms, settings.sortBy]);
 
   const groupByName = useMemo(() => new Map(groups.map((group) => [group.name, group])), [groups]);
+  const nodeNameSet = useMemo(() => new Set(nodes.map((node) => node.name).filter(Boolean)), [nodes]);
+  const providerChainByName = useMemo(
+    () => new Map(chainRecords.providerChains.map((record) => [record.name, record])),
+    [chainRecords.providerChains]
+  );
+  const chainTargetFor = useCallback((name: string): ChainTarget => {
+    const target = name.trim();
+    if (target === "DIRECT" || target === "REJECT") return { label: "内置目标", tone: "ok" };
+    if (groupByName.has(target)) return { label: "策略组", tone: "ok" };
+    if (nodeNameSet.has(target)) return { label: "节点", tone: "ok" };
+    return { label: "未找到", tone: "warning" };
+  }, [groupByName, nodeNameSet]);
 
   const currentCollapseNames = tab === "providers" ? visibleProviders.map((provider) => provider.name) : visibleGroups.map((group) => group.name);
 
@@ -1187,6 +1399,19 @@ export default function MihomoProxiesPage() {
     }
   };
 
+  const openProfessionalConfig = () => {
+    window.location.assign("/mihomo/config");
+  };
+
+  const copyChainExample = async () => {
+    try {
+      await navigator.clipboard.writeText(CHAIN_PROXY_EXAMPLE);
+      showToast("链式代理示例已复制");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "复制失败");
+    }
+  };
+
   const updateProvider = async (name: string) => {
     try {
       await api(`/api/v1/mihomo/proxy-providers/${encodeURIComponent(name)}/update`, { method: "POST" });
@@ -1391,13 +1616,20 @@ export default function MihomoProxiesPage() {
 
         {tab === "providers" ? (
           <div className="space-y-3">
-            <div className="flex">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowProviderModal(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <Settings2 className="h-4 w-4" />
                 管理代理供应商
+              </button>
+              <button
+                onClick={() => setShowChainModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <GitBranch className="h-4 w-4" />
+                链式代理
               </button>
             </div>
             <div className={cn("grid grid-cols-1 gap-3", settings.doubleColumn && "2xl:grid-cols-2")}>
@@ -1407,12 +1639,33 @@ export default function MihomoProxiesPage() {
                 </div>
               ) : visibleProviders.map((p) => {
                 const collapsed = readCollapsed("provider", p.name);
+                const configuredChain = p.chainDialerProxy
+                  ? { dialerProxy: p.chainDialerProxy, source: p.chainSource || `proxy-providers.${p.name}.override.dialer-proxy` }
+                  : providerChainByName.get(p.name);
+                const chainTarget = configuredChain ? chainTargetFor(configuredChain.dialerProxy) : null;
                 return (
                   <div key={p.name} className="rounded-lg border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold text-sm">
-                        {p.name} <span className="text-xs text-muted-foreground font-normal">({p.now}/{p.total})</span>
-                      </h3>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-sm">
+                            {p.name} <span className="text-xs text-muted-foreground font-normal">({p.now}/{p.total})</span>
+                          </h3>
+                          {configuredChain && (
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                                chainTarget?.tone === "warning"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              )}
+                              title={configuredChain.source}
+                            >
+                              {chainTarget?.tone === "warning" ? "链式目标未找到" : `链式 -> ${configuredChain.dialerProxy}`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 font-medium">
                           存活 {p.alive}
@@ -1479,6 +1732,7 @@ export default function MihomoProxiesPage() {
               const d = groupDelay(g);
               const isTesting = testing === g.name;
               const collapsed = readCollapsed("group", g.name);
+              const isRelay = g.type.toLowerCase() === "relay";
               const displayNodes = settings.hideUnavailable
                 ? g.nodes.filter((node) => node.alive && node.delay > 0)
                 : g.nodes;
@@ -1500,10 +1754,15 @@ export default function MihomoProxiesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-sm truncate">{g.name}</h3>
-                          <span className="text-xs text-muted-foreground">
-                            : {g.type || "Selector"} ({g.now}/{g.nodes.length})
-                          </span>
-                          {d > 0 && (
+	                          <span className="text-xs text-muted-foreground">
+	                            : {g.type || "Selector"} ({g.now}/{g.nodes.length})
+	                          </span>
+                          {isRelay && (
+                            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                              relay 已弃用
+                            </span>
+                          )}
+	                          {d > 0 && (
                             <span className={cn("text-sm font-medium ml-auto", delayColor(d, settings))}>{d}ms</span>
                           )}
                           <button
@@ -1593,6 +1852,17 @@ export default function MihomoProxiesPage() {
         onChange={setSettings}
       />
 
+      {showChainModal && (
+        <ChainProxyModal
+          providerChains={chainRecords.providerChains}
+          proxyChains={chainRecords.proxyChains}
+          targetFor={chainTargetFor}
+          onClose={() => setShowChainModal(false)}
+          onOpenConfig={openProfessionalConfig}
+          onCopyExample={() => void copyChainExample()}
+        />
+      )}
+
       {showGroupModal && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
@@ -1634,10 +1904,10 @@ export default function MihomoProxiesPage() {
                       onChange={(event) => setGroupDrafts((items) => items.map((item, i) => (i === index ? { ...item, type: event.target.value } : item)))}
                       className="px-3 py-2 text-sm rounded-lg border border-border/60 bg-card focus:outline-none focus:border-primary/60"
                     >
-                      {["select", "url-test", "fallback", "load-balance", "relay"].map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+	                      {["select", "url-test", "fallback", "load-balance", "relay"].map((type) => (
+	                        <option key={type} value={type}>{type === "relay" ? "relay（已弃用）" : type}</option>
+	                      ))}
+	                    </select>
                     <input
                       value={group.proxies}
                       onChange={(event) => setGroupDrafts((items) => items.map((item, i) => (i === index ? { ...item, proxies: event.target.value } : item)))}
@@ -1678,14 +1948,19 @@ export default function MihomoProxiesPage() {
                       </button>
                     </div>
                   </div>
-                  <textarea
-                    value={group.extra}
+	                  <textarea
+	                    value={group.extra}
                     onChange={(event) => setGroupDrafts((items) => items.map((item, i) => (i === index ? { ...item, extra: event.target.value } : item)))}
                     placeholder='高级 JSON，例如 {"url":"http://detectportal.firefox.com/success.txt","interval":120}'
-                    className="mt-2 min-h-20 w-full rounded-lg border border-border/60 bg-card px-3 py-2 font-mono text-xs focus:outline-none focus:border-primary/60"
-                  />
-                </div>
-              ))}
+	                    className="mt-2 min-h-20 w-full rounded-lg border border-border/60 bg-card px-3 py-2 font-mono text-xs focus:outline-none focus:border-primary/60"
+	                  />
+                    {group.type === "relay" && (
+                      <div className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                        relay 已被官方弃用，链式代理推荐使用 dialer-proxy 或 proxy-providers.override.dialer-proxy。
+                      </div>
+                    )}
+	                </div>
+	              ))}
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-2">
